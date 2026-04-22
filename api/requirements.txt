@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+# Wait for moviebox-api version that works or just latest
+moviebox-api
+httpx

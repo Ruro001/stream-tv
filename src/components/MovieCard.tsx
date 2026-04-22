@@ -1,0 +1,88 @@
+import { motion } from "motion/react";
+import { Star, Check, ArrowDownToLine, Heart } from "lucide-react";
+import { Media } from "../types";
+
+export const MovieCard = ({ 
+  movie, 
+  onClick, 
+  onDownload,
+  onToggleFavorite,
+  isFavorite,
+  isDownloaded,
+  isDownloading,
+  progress
+}: { 
+  movie: Media; 
+  onClick: (movie: Media) => void; 
+  onDownload: (movie: Media) => void;
+  onToggleFavorite: (movie: Media) => void;
+  isFavorite: boolean;
+  isDownloaded: boolean;
+  isDownloading: boolean;
+  progress: number;
+  key?: string | number;
+}) => {
+  return (
+    <motion.div 
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={() => onClick(movie)}
+      className="flex-none w-[120px] md:w-[180px] cursor-pointer"
+    >
+      <div className="relative aspect-[2/3] rounded-2xl overflow-hidden shadow-lg border border-white/5">
+        <img 
+          src={movie.thumbnail} 
+          alt={movie.title}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        
+        {/* Top Left Badges */}
+        <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
+          {movie.isTrending && (
+            <div className="bg-[#E53935] text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg w-fit tracking-wider">
+              TOP 10
+            </div>
+          )}
+          {movie.rating > 0 && (
+            <div className="bg-black/40 backdrop-blur-md rounded-md px-1.5 py-0.5 flex items-center gap-1 w-fit">
+              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+              <span className="text-white text-[10px] font-bold">
+                {movie.rating.toFixed(1)}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Favorite Icon */}
+        <button 
+          onClick={(e) => { e.stopPropagation(); onToggleFavorite(movie); }}
+          className="absolute top-2 right-10 p-1.5 rounded-full bg-black/20 backdrop-blur-sm hover:bg-black/40 transition-colors z-10"
+        >
+          <Heart className={`w-4 h-4 ${isFavorite ? "text-red-500 fill-red-500" : "text-white"}`} />
+        </button>
+
+        {/* Download Icon */}
+        <button 
+          onClick={(e) => { e.stopPropagation(); onDownload(movie); }}
+          className="absolute top-2 right-2 p-1.5 rounded-full bg-black/20 backdrop-blur-sm hover:bg-black/40 transition-colors z-10"
+        >
+          {isDownloading ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : isDownloaded ? (
+            <Check className="w-4 h-4 text-green-500" />
+          ) : (
+            <ArrowDownToLine className="w-4 h-4 text-white" />
+          )}
+        </button>
+
+        {/* Title */}
+        <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
+          <h3 className="text-white text-xs md:text-sm font-bold truncate drop-shadow-md">
+            {movie.title}
+          </h3>
+        </div>
+      </div>
+    </motion.div>
+  );
+};

@@ -1,0 +1,35 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+# moviebox-api/
+tmp/
+
+# Media files
+*.mp4
+*.part
+*.srt
+
+# Scratch and Debug files
+scratch_*
+debug_*
+test_*
+tmp_moviebox.py
+record.txt
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!vercel.json
+!metadata.json
+!api/vercel.json
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
