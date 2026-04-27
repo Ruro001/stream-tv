@@ -165,11 +165,14 @@ async def fetch_sources(
 
 async def _fetch_stream_response(url: str, request: Request, as_attachment: bool = False):
     headers = {
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:137.0) Gecko/20100101 Firefox/137.0",
-        "Referer":    "https://videodownloader.site/",
-        "Origin":     "https://videodownloader.site",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Referer":    "https://h5.aoneroom.com/",
+        "Origin":     "https://h5.aoneroom.com",
+        "Accept":     "*/*",
+        "Connection": "keep-alive",
     }
 
+    # Pass through range header if present for seeking
     if not as_attachment and request.headers.get("range"):
         headers["Range"] = request.headers["range"]
 
