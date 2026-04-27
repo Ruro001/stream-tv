@@ -16,7 +16,7 @@ export interface MovieBoxSource {
   format?: string;
 }
 
-const API_BASE_URL = "/api";
+const API_BASE_URL = import.meta.env.VITE_WORKER_URL || "/api";
 
 export const movieboxService = {
   /**
