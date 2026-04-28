@@ -34,6 +34,7 @@ export const MovieCard = ({
           src={movie.thumbnail} 
           alt={movie.title}
           className="w-full h-full object-cover"
+          onError={(e) => { (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/movie/500/750'; }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
         

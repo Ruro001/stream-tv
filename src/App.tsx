@@ -81,14 +81,25 @@ const Navbar = ({
   }, []);
 
   return (
-    <nav className={`fixed top-0 w-full z-50 transition-all duration-500 px-6 py-6 flex items-center justify-between ${isScrolled ? "bg-[#1f232b]/95 backdrop-blur-md shadow-lg" : "bg-gradient-to-b from-[#1f232b]/80 to-transparent"}`}>
-      <div className="flex items-center">
+    <nav className={`fixed top-0 w-full z-50 transition-all duration-500 px-4 md:px-12 py-3 flex items-center justify-between ${isScrolled ? "bg-[#1f232b]/95 backdrop-blur-md shadow-lg border-b border-white/5" : "bg-gradient-to-b from-black/90 via-black/40 to-transparent"}`}>
+      <div className="flex items-center gap-2 md:gap-4 shrink-0">
+        {/* LOGO */}
+        <div className="flex items-center cursor-pointer py-1" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <img 
+            src="/logo.png" 
+            alt="RURO TV" 
+            className="h-7 md:h-11 w-auto object-contain" 
+            onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/200x80/black/red?text=RURO+TV'; }}
+          />
+        </div>
+        
         <div className="relative flex items-center">
           <AnimatePresence>
             {isSearchVisible && (
               <motion.div 
                 initial={{ width: 0, opacity: 0 }}
-                animate={{ width: 220, opacity: 1 }}
+                animate={{ width: 140, opacity: 1 }}
+                whileFocus={{ width: 220 }}
                 exit={{ width: 0, opacity: 0 }}
                 className="absolute left-8 flex items-center"
               >
@@ -101,7 +112,7 @@ const Navbar = ({
                     onSearch(e.target.value);
                   }}
                   placeholder="Search..."
-                  className="bg-white/10 border border-white/20 rounded-full pl-4 pr-8 py-1 text-sm w-full outline-none text-white"
+                  className="bg-white/10 border border-white/20 rounded-full pl-3 pr-8 py-1.5 text-xs md:text-sm w-full outline-none text-white focus:bg-white/20 transition-all"
                 />
                 {searchQuery && (
                   <button
@@ -115,36 +126,41 @@ const Navbar = ({
             )}
           </AnimatePresence>
           <Search 
-            onClick={() => {
-              if (isSearchVisible && !searchQuery) {
-                setIsSearchVisible(false);
-              } else {
-                setIsSearchVisible(true);
-              }
-            }}
-            className="w-6 h-6 text-white cursor-pointer" 
+            onClick={() => setIsSearchVisible(!isSearchVisible)}
+            className="w-5 h-5 md:w-6 md:h-6 text-white cursor-pointer hover:text-[#E53935] transition-colors" 
           />
         </div>
       </div>
 
-      <div className="flex items-center gap-6 md:gap-8 absolute left-1/2 -translate-x-1/2">
+      {/* Desktop Navigation */}
+      <div className="hidden lg:flex items-center gap-10 absolute left-1/2 -translate-x-1/2">
         <button 
           onClick={() => onMediaTypeChange("movie")}
-          className={`text-sm font-medium transition-all whitespace-nowrap ${activeMediaType === "movie" ? "text-white font-bold" : "text-gray-400 hover:text-white"}`}
+          className={`text-sm font-bold transition-all whitespace-nowrap uppercase tracking-wider ${activeMediaType === "movie" ? "text-[#E53935] border-b-2 border-[#E53935] pb-1" : "text-gray-300 hover:text-white"}`}
         >
           Movies
         </button>
         <button 
           onClick={() => onMediaTypeChange("tv")}
-          className={`text-sm font-medium transition-all whitespace-nowrap ${activeMediaType === "tv" ? "text-white font-bold" : "text-gray-400 hover:text-white"}`}
+          className={`text-sm font-bold transition-all whitespace-nowrap uppercase tracking-wider ${activeMediaType === "tv" ? "text-[#E53935] border-b-2 border-[#E53935] pb-1" : "text-gray-300 hover:text-white"}`}
         >
           TV Shows
         </button>
-        <button 
-          className={`text-sm font-medium transition-all whitespace-nowrap text-gray-400 hover:text-white`}
-        >
+        <button className="text-sm font-bold text-gray-300 hover:text-white transition-all whitespace-nowrap uppercase tracking-wider">
           Trailers
         </button>
+      </div>
+
+      {/* Mobile/Right Actions */}
+      <div className="flex items-center gap-3">
+        {activeProfile && (
+          <div 
+            onClick={onProfileClick}
+            className={`w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center text-white text-sm font-black cursor-pointer ring-2 ring-transparent hover:ring-white/40 transition-all shadow-lg ${activeProfile.color || 'bg-prime-blue'}`}
+          >
+            {activeProfile.avatar}
+          </div>
+        )}
       </div>
     </nav>
   );
@@ -188,9 +204,8 @@ const Hero = ({ movies, onInfoClick, onPlay }: {
       >
         <div className="flex items-end justify-between w-full">
           <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[#E53935] text-3xl font-black tracking-tighter">N</span>
-              <span className="text-gray-300 text-xs font-medium uppercase tracking-wider">Available Now</span>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-white text-xs md:text-sm font-black uppercase tracking-widest bg-white/10 px-3 py-1 rounded backdrop-blur-md">Available Now</span>
             </div>
             <h2 className="text-3xl md:text-5xl font-bold text-white tracking-tight">
               Watch {movie.title}
