@@ -298,6 +298,13 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
               Use a different email
             </button>
           </form>
+        ) : (
+          <button
+            onClick={() => setStep('email')}
+            className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-4 rounded-xl transition-colors mt-4"
+          >
+            Back to Login
+          </button>
         )}
 
         {/* Footer */}
