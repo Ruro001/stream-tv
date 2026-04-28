@@ -27,10 +27,14 @@ export const RuroLogo = ({ className = "" }: { className?: string }) => (
 export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
   const [bgImage, setBgImage] = useState("https://picsum.photos/seed/cinema-dark/1080/1920");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<'email' | 'otp'>('email');
+  const [step, setStep] = useState<'email' | 'otp' | 'forgot_password'>('email');
+  const [mode, setMode] = useState<'password' | 'magic_link'>('password');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
 
   useEffect(() => {
     const fetchBg = async () => {
@@ -139,53 +143,172 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
           {step === 'email' ? 'Sign in to continue' : `We sent a code to ${email}`}
         </p>
 
+  const handlePasswordSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const { error } = await supabase!.auth.signInWithPassword({ email, password });
+      if (error) {
+        // If user doesn't exist, try to sign them up
+        if (error.message.includes("Invalid login credentials")) {
+           const { error: signUpErr } = await supabase!.auth.signUp({ email, password });
+           if (signUpErr) throw signUpErr;
+           setSuccessMsg("Account created! You can now sign in.");
+        } else {
+           throw error;
+        }
+      } else {
+        onLogin();
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMagicLink = async () => {
+    if (!email) { setError("Enter your email first"); return; }
+    setIsLoading(true);
+    setError("");
+    try {
+      const { error } = await supabase!.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } });
+      if (error) throw error;
+      setSuccessMsg("Magic link sent! Check your inbox.");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) { setError("Enter your email first"); return; }
+    setIsLoading(true);
+    setError("");
+    try {
+      const { error } = await supabase!.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+      if (error) throw error;
+      setSuccessMsg("Reset link sent! Check your email.");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black z-40 flex flex-col overflow-hidden">
+      {/* Background Image */}
+      <div className="absolute inset-0 z-0">
+        <img 
+          src={bgImage} 
+          alt="Background" 
+          className="w-full h-full object-cover opacity-60 transition-opacity duration-1000"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black/80" />
+      </div>
+
+      <motion.div 
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.8, delay: 0.2 }}
+        className="relative z-10 pt-16 pb-4 flex justify-center"
+      >
+        <RuroLogo className="scale-90" />
+      </motion.div>
+
+      <div className="flex-grow" />
+
+      <motion.div 
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        transition={{ type: "spring", damping: 25, stiffness: 200, delay: 0.4 }}
+        className="relative z-10 bg-[#0a0a0a] rounded-t-[2.5rem] px-6 pt-6 pb-12 w-full max-w-md mx-auto border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]"
+      >
+        <div className="w-12 h-1.5 bg-gray-700 rounded-full mx-auto mb-8" />
+
+        <h1 className="text-white text-3xl font-bold mb-2">
+          {step === 'email' ? 'Welcome' : 'Help is on the way'}
+        </h1>
+        <p className="text-gray-400 text-sm mb-8 italic">
+          Signin to your account or create a new one instantly.
+        </p>
+
         {error && (
           <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl mb-6 text-sm">
             {error}
           </div>
         )}
+        {successMsg && (
+          <div className="bg-green-500/10 border border-green-500/20 text-green-400 px-4 py-3 rounded-xl mb-6 text-sm">
+            {successMsg}
+          </div>
+        )}
 
         {step === 'email' ? (
-          <form onSubmit={handleSendOtp} className="space-y-4">
-            {/* Email Input - Semi-transparent */}
-            <div className="relative">
+          <form onSubmit={mode === 'password' ? handlePasswordSignIn : handleSendOtp} className="space-y-4">
+            <div className="space-y-3">
               <input 
                 type="email" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email or phone number" 
-                className="w-full bg-[#1a1a1a]/80 text-white px-5 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all"
+                placeholder="Email address" 
+                className="w-full bg-[#1a1a1a]/80 text-white px-5 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all font-medium"
                 required
               />
+              
+              {mode === 'password' && (
+                <div className="relative group">
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Password" 
+                    className="w-full bg-[#1a1a1a]/80 text-white px-5 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all font-medium pr-14"
+                    required
+                    minLength={6}
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Options Row */}
-            <div className="flex items-center justify-between text-sm text-gray-400 mt-2 mb-6 px-1">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div className="relative flex items-center justify-center w-5 h-5 rounded border border-gray-600 group-hover:border-gray-400 transition-colors">
-                  <input type="checkbox" className="peer sr-only" />
-                  <div className="absolute inset-0 bg-red-600 rounded opacity-0 peer-checked:opacity-100 transition-opacity" />
-                  <svg className="w-3 h-3 text-white absolute opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <span className="group-hover:text-gray-300 transition-colors">Remember me</span>
-              </label>
-              <button type="button" className="hover:text-white transition-colors">
-                Need help?
+            <div className="flex items-center justify-between text-xs text-gray-400 mt-2 mb-6 px-1">
+              <button 
+                type="button" 
+                onClick={handleForgotPassword}
+                className="hover:text-white transition-colors hover:underline"
+              >
+                Forgot password?
+              </button>
+              
+              <button 
+                type="button" 
+                onClick={handleMagicLink}
+                className="text-red-500 font-bold hover:text-red-400 transition-colors flex items-center gap-1"
+              >
+                Sign in without password
               </button>
             </div>
 
-            {/* Sign In Button */}
             <button 
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#E50914] hover:bg-[#b20710] disabled:bg-[#E50914]/50 text-white font-bold py-4 rounded-xl transition-colors mt-8 text-lg flex items-center justify-center"
+              className="w-full bg-[#E50914] hover:bg-[#b20710] disabled:bg-[#E50914]/50 text-white font-bold py-4 rounded-xl transition-all shadow-[0_8px_20px_rgba(229,9,20,0.3)] mt-8 text-lg flex items-center justify-center transform active:scale-95"
             >
-              {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Sign in'}
+              {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (mode === 'password' ? 'Sign In / Register' : 'Get Magic Code')}
             </button>
           </form>
-        ) : (
+        ) : step === 'otp' ? (
           <form onSubmit={handleVerifyOtp} className="space-y-4">
             {/* OTP Input - Semi-transparent */}
             <div className="relative">

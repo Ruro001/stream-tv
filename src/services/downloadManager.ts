@@ -23,7 +23,9 @@ class DownloadManager {
 
   async startDownload(movie: Media, downloadUrl: string, quality: string) {
     const mediaId = movie.id;
-    if (this.activeDownloads.has(mediaId)) return;
+    // If it's already downloading, don't start another one
+    const existing = this.activeDownloads.get(mediaId);
+    if (existing && existing.status === 'downloading') return;
 
     const abortController = new AbortController();
     const initialState: DownloadState = {
@@ -34,6 +36,7 @@ class DownloadManager {
       receivedBytes: 0,
       totalBytes: 0,
       speed: 0,
+      streamUrl: downloadUrl,
       abortController
     };
 
@@ -140,9 +143,10 @@ class DownloadManager {
       this.activeDownloads.delete(mediaId);
 
     } catch (error: any) {
-      if (error.name === 'AbortError') {
+      if (error.name === 'AbortError' || state.abortController?.signal.aborted) {
         state.status = 'paused';
         this.notify({ ...state });
+        // We keep it in activeDownloads but with 'paused' status
       } else {
         console.error("Download manager error:", error);
         state.status = 'error';
@@ -158,11 +162,16 @@ class DownloadManager {
     }
   }
 
-  async resumeDownload(mediaId: string, streamUrl: string) {
+  async resumeDownload(mediaId: string, streamUrl?: string) {
     const state = this.activeDownloads.get(mediaId);
     if (state && (state.status === 'paused' || state.status === 'error')) {
-      // Re-trigger startDownload which will handle the partial logic
-      this.startDownload(state.movie, streamUrl, 'unknown');
+      // Re-trigger startDownload with existing movie object and cached URL
+      const urlToUse = streamUrl || state.streamUrl || "";
+      this.startDownload(state.movie, urlToUse, 'HD');
+    } else {
+      // If the state was lost (page refresh), we still have the partial in storage
+      // This will be handled by startDownload checking storageService.getPartialVideo
+      // We just need the movie metadata which we might need to fetch or have passed in
     }
   }
 

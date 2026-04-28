@@ -14,7 +14,7 @@ export const DownloadsPage = ({
 }: {
   downloadedIds: Set<string>;
   downloadingIds: Set<string>;
-  downloadingProgress: Record<string, number>;
+  downloadingProgress: Record<string, { progress: number; received: number; total: number }>;
   onMovieClick: (movie: Media) => void;
   onDownload: (movie: Media) => void;
   onToggleFavorite: (movie: Media) => void;
@@ -70,8 +70,10 @@ export const DownloadsPage = ({
                 onToggleFavorite={onToggleFavorite}
                 isFavorite={favorites.has(movie.id)}
                 isDownloaded={true}
-                isDownloading={false}
-                progress={100}
+                isDownloading={downloadingIds.has(movie.id)}
+                progress={downloadingProgress[movie.id]?.progress || 100}
+                received={downloadingProgress[movie.id]?.received}
+                total={downloadingProgress[movie.id]?.total}
               />
               <button 
                 onClick={() => handleExport(movie.id, movie.title)}

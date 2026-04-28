@@ -256,7 +256,7 @@ const MovieRow = ({
   favorites: Set<string>;
   downloadedIds: Set<string>;
   downloadingIds: Set<string>;
-  downloadingProgress: Record<string, number>;
+  downloadingProgress: Record<string, { progress: number }>
 }) => {
   const rowRef = useRef<HTMLDivElement>(null);
 
@@ -277,7 +277,7 @@ const MovieRow = ({
             isFavorite={favorites.has(movie.id)}
             isDownloaded={downloadedIds.has(movie.id)}
             isDownloading={downloadingIds.has(movie.id)}
-            progress={downloadingProgress[movie.id] || 0}
+            progress={downloadingProgress[movie.id]?.progress || 0}
           />
         ))}
       </div>
@@ -727,7 +727,13 @@ export default function App() {
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
-  const [downloadingProgress, setDownloadingProgress] = useState<Record<string, number>>({});
+  const [downloadingProgress, setDownloadingProgress] = useState<Record<string, {
+    progress: number;
+    received: number;
+    total: number;
+    speed: number;
+    status: string;
+  }>>({});
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("favorites");
     return saved ? new Set(JSON.parse(saved)) : new Set();
@@ -1159,6 +1165,14 @@ export default function App() {
   };
 
   // Sync DownloadManager updates with App state for MovieCard icons
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
   useEffect(() => {
     const unsubscribe = downloadManager.subscribe((state) => {
       if (state.status === 'completed') {
@@ -1168,11 +1182,28 @@ export default function App() {
           next.delete(state.mediaId);
           return next;
         });
-      } else if (state.status === 'downloading') {
-        setDownloadingProgress(prev => ({ ...prev, [state.mediaId]: state.progress }));
-        setDownloadingIds(prev => new Set(prev).add(state.mediaId));
+      } else if (state.status === 'downloading' || state.status === 'paused') {
+        setDownloadingProgress(prev => ({ 
+          ...prev, 
+          [state.mediaId]: {
+            progress: state.progress,
+            received: state.receivedBytes,
+            total: state.totalBytes,
+            speed: state.speed,
+            status: state.status
+          } 
+        }));
+        if (state.status === 'downloading') {
+          setDownloadingIds(prev => new Set(prev).add(state.mediaId));
+        } else {
+           setDownloadingIds(prev => {
+             const next = new Set(prev);
+             next.delete(state.mediaId);
+             return next;
+           });
+        }
       } else if (state.status === 'idle') {
-         setDownloadingIds(prev => {
+        setDownloadingIds(prev => {
           const next = new Set(prev);
           next.delete(state.mediaId);
           return next;

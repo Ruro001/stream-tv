@@ -10,18 +10,30 @@ export const MovieCard = ({
   isFavorite,
   isDownloaded,
   isDownloading,
-  progress
+  progress,
+  received,
+  total
 }: { 
   movie: Media; 
   onClick: (movie: Media) => void; 
-  onDownload: (movie: Media) => void;
+  onDownload: (movie: Media) => void; 
   onToggleFavorite: (movie: Media) => void;
   isFavorite: boolean;
   isDownloaded: boolean;
   isDownloading: boolean;
   progress: number;
+  received?: number;
+  total?: number;
   key?: string | number;
 }) => {
+  const formatBytes = (bytes?: number) => {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
   return (
     <motion.div 
       whileHover={{ scale: 1.05 }}
@@ -78,7 +90,22 @@ export const MovieCard = ({
         </button>
 
         {/* Title */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
+        <div className="absolute bottom-0 left-0 right-0 p-3 z-10 flex flex-col gap-1.5">
+          {isDownloading && total && (
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between items-center text-[8px] text-white font-bold drop-shadow-md">
+                <span>{formatBytes(received)} / {formatBytes(total)}</span>
+                <span>{Math.round(progress)}%</span>
+              </div>
+              <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+                <motion.div 
+                  className="h-full bg-prime-blue"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          )}
           <h3 className="text-white text-xs md:text-sm font-bold truncate drop-shadow-md">
             {movie.title}
           </h3>
