@@ -28,7 +28,11 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
   const [bgImage, setBgImage] = useState("https://picsum.photos/seed/cinema-dark/1080/1920");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
   const [otp, setOtp] = useState("");
+  const [view, setView] = useState<'signin' | 'signup'>('signin');
   const [step, setStep] = useState<'email' | 'otp' | 'forgot_password'>('email');
   const [mode, setMode] = useState<'password' | 'magic_link'>('password');
   const [isLoading, setIsLoading] = useState(false);
@@ -108,17 +112,50 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
     setSuccessMsg("");
     try {
       const { error } = await supabase!.auth.signInWithPassword({ email, password });
-      if (error) {
-        // If user doesn't exist, try to sign them up
-        if (error.message.includes("Invalid login credentials")) {
-           const { error: signUpErr } = await supabase!.auth.signUp({ email, password });
-           if (signUpErr) throw signUpErr;
-           setSuccessMsg("Account created! You can now sign in.");
-        } else {
-           throw error;
+      if (error) throw error;
+      onLogin();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const { data, error } = await supabase!.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          data: {
+            full_name: name,
+            phone: phone,
+            address: address
+          }
         }
-      } else {
-        onLogin();
+      });
+      
+      if (error) throw error;
+      
+      if (data.user) {
+        // Also save to profiles table for easy retrieval
+        const { error: profileErr } = await supabase!
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            name: name,
+            avatar: name.charAt(0).toUpperCase(),
+            color: 'bg-prime-blue'
+          });
+          
+        if (profileErr) console.error("Profile creation error:", profileErr);
+        
+        setSuccessMsg("Account created! You can now sign in.");
+        setTimeout(() => setView('signin'), 2000);
       }
     } catch (err: any) {
       setError(err.message);
@@ -189,122 +226,63 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
         <div className="w-12 h-1.5 bg-gray-700 rounded-full mx-auto mb-8" />
 
         <h1 className="text-white text-3xl font-bold mb-2">
-          {step === 'email' ? 'Welcome' : 'Help is on the way'}
+          {view === 'signin' ? (step === 'email' ? 'Welcome' : 'Check email') : 'Create Account'}
         </h1>
         <p className="text-gray-400 text-sm mb-8 italic">
-          Signin to your account or create a new one instantly.
+          {view === 'signin' ? 'Sign in to your account.' : 'Join Ruro TV to enjoy premium cinema.'}
         </p>
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl mb-6 text-sm">
-            {error}
-          </div>
-        )}
-        {successMsg && (
-          <div className="bg-green-500/10 border border-green-500/20 text-green-400 px-4 py-3 rounded-xl mb-6 text-sm">
-            {successMsg}
-          </div>
-        )}
+        {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl mb-6 text-sm">{error}</div>}
+        {successMsg && <div className="bg-green-500/10 border border-green-500/20 text-green-400 px-4 py-3 rounded-xl mb-6 text-sm">{successMsg}</div>}
 
-        {step === 'email' ? (
-          <form onSubmit={mode === 'password' ? handlePasswordSignIn : handleSendOtp} className="space-y-4">
-            <div className="space-y-3">
-              <input 
-                type="email" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email address" 
-                className="w-full bg-[#1a1a1a]/80 text-white px-5 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all font-medium"
-                required
-              />
-              
-              {mode === 'password' && (
-                <div className="relative group">
-                  <input 
-                    type={showPassword ? "text" : "password"} 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Password" 
-                    className="w-full bg-[#1a1a1a]/80 text-white px-5 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all font-medium pr-14"
-                    required
-                    minLength={6}
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between text-xs text-gray-400 mt-2 mb-6 px-1">
-              <button 
-                type="button" 
-                onClick={handleForgotPassword}
-                className="hover:text-white transition-colors hover:underline"
-              >
-                Forgot password?
+        {view === 'signin' ? (
+          step === 'email' ? (
+            <form onSubmit={mode === 'password' ? handlePasswordSignIn : handleSendOtp} className="space-y-4">
+              <div className="space-y-3">
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" className="w-full bg-[#1a1a1a]/80 text-white px-5 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all font-medium" required />
+                {mode === 'password' && (
+                  <div className="relative group">
+                    <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full bg-[#1a1a1a]/80 text-white px-5 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all font-medium pr-14" required minLength={6} />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-between text-xs text-gray-400 mt-2 mb-6 px-1">
+                <button type="button" onClick={handleForgotPassword} className="hover:text-white transition-colors hover:underline">Forgot password?</button>
+                <button type="button" onClick={handleMagicLink} className="text-red-500 font-bold hover:text-red-400 transition-colors flex items-center gap-1">Sign in without password</button>
+              </div>
+              <button type="submit" disabled={isLoading} className="w-full bg-[#E50914] hover:bg-[#b20710] disabled:bg-[#E50914]/50 text-white font-bold py-4 rounded-xl transition-all shadow-[0_8px_20px_rgba(229,9,20,0.3)] mt-8 text-lg flex items-center justify-center transform active:scale-95">
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Sign In'}
               </button>
-              
-              <button 
-                type="button" 
-                onClick={handleMagicLink}
-                className="text-red-500 font-bold hover:text-red-400 transition-colors flex items-center gap-1"
-              >
-                Sign in without password
+              <div className="mt-8 text-center text-sm text-gray-400">
+                First time here? <button type="button" onClick={() => setView('signup')} className="text-white font-bold hover:underline ml-1">Sign up</button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyOtp} className="space-y-4">
+              <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="Enter code" className="w-full bg-[#1a1a1a]/80 text-white px-5 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all text-center tracking-widest text-xl font-mono" required maxLength={8} />
+              <button type="submit" disabled={isLoading || otp.length < 8} className="w-full bg-[#E50914] hover:bg-[#b20710] disabled:bg-[#E50914]/50 text-white font-bold py-4 rounded-xl transition-colors mt-8 text-lg flex items-center justify-center">
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Verify & Sign In'}
               </button>
-            </div>
-
-            <button 
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-[#E50914] hover:bg-[#b20710] disabled:bg-[#E50914]/50 text-white font-bold py-4 rounded-xl transition-all shadow-[0_8px_20px_rgba(229,9,20,0.3)] mt-8 text-lg flex items-center justify-center transform active:scale-95"
-            >
-              {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (mode === 'password' ? 'Sign In / Register' : 'Get Magic Code')}
-            </button>
-          </form>
-        ) : step === 'otp' ? (
-          <form onSubmit={handleVerifyOtp} className="space-y-4">
-            {/* OTP Input - Semi-transparent */}
-            <div className="relative">
-              <input 
-                type="text" 
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="Enter 8-digit code" 
-                className="w-full bg-[#1a1a1a]/80 text-white px-5 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all text-center tracking-widest text-xl font-mono"
-                required
-                maxLength={8}
-              />
-            </div>
-
-            {/* Verify Button */}
-            <button 
-              type="submit"
-              disabled={isLoading || otp.length < 8}
-              className="w-full bg-[#E50914] hover:bg-[#b20710] disabled:bg-[#E50914]/50 text-white font-bold py-4 rounded-xl transition-colors mt-8 text-lg flex items-center justify-center"
-            >
-              {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Verify & Sign In'}
-            </button>
-            
-            <button
-              type="button"
-              onClick={() => setStep('email')}
-              className="w-full text-gray-400 hover:text-white text-sm mt-4 transition-colors"
-            >
-              Use a different email
-            </button>
-          </form>
+              <button type="button" onClick={() => setStep('email')} className="w-full text-gray-400 hover:text-white text-sm mt-4 transition-colors">Use a different email</button>
+            </form>
+          )
         ) : (
-          <button
-            onClick={() => setStep('email')}
-            className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-4 rounded-xl transition-colors mt-4"
-          >
-            Back to Login
-          </button>
+          <form onSubmit={handleSignUp} className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 max-h-[40vh] overflow-y-auto no-scrollbar pr-1">
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Full Name" className="w-full bg-[#1a1a1a]/80 text-white px-5 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all font-medium" required />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="w-full bg-[#1a1a1a]/80 text-white px-5 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all font-medium" required />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full bg-[#1a1a1a]/80 text-white px-5 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all font-medium" required minLength={6} />
+              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone Number" className="w-full bg-[#1a1a1a]/80 text-white px-5 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all font-medium" required />
+              <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Address" className="w-full bg-[#1a1a1a]/80 text-white px-5 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all font-medium" required />
+            </div>
+            <button type="submit" disabled={isLoading} className="w-full bg-[#E50914] hover:bg-[#b20710] disabled:bg-[#E50914]/50 text-white font-bold py-4 rounded-xl transition-all shadow-[0_8px_20px_rgba(229,9,20,0.3)] mt-6 text-lg flex items-center justify-center transform active:scale-95">
+              {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Create Account'}
+            </button>
+            <div className="mt-6 text-center text-sm text-gray-400">
+              Already have an account? <button type="button" onClick={() => setView('signin')} className="text-white font-bold hover:underline ml-1">Sign in</button>
+            </div>
+          </form>
         )}
 
         {/* Footer */}
