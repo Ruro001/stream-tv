@@ -740,6 +740,23 @@ export default function App() {
   const [availableDownloadQualities, setAvailableDownloadQualities] = useState<MovieBoxSource[]>([]);
   const [isFetchingQualities, setIsFetchingQualities] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => {
+      setIsOnline(false);
+      setActiveTab("downloads"); // Auto-switch to downloads when internet is lost
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     // Sync true downloaded IDs from Storage
@@ -1239,7 +1256,18 @@ export default function App() {
       />
       
       <main className="pb-32">
-        {isApiKeyMissing && (
+        {!isOnline && (
+          <div className="pt-24 px-6 md:px-16 mb-8">
+            <div className="bg-orange-500/20 border border-orange-500/40 p-4 rounded-2xl text-orange-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+                <span className="font-bold text-sm">Offline Mode: Showing your downloads</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isApiKeyMissing && isOnline && (
           <div className="pt-24 px-6 md:px-16">
             <div className="bg-prime-blue/20 border border-prime-blue/40 p-4 rounded-lg text-white flex items-center gap-4">
               <Info className="w-6 h-6 text-prime-blue" />
@@ -1250,7 +1278,7 @@ export default function App() {
           </div>
         )}
 
-        {searchQuery !== "" ? (
+        {searchQuery !== "" && isOnline ? (
           <div className="pt-28 md:pt-32 px-6 md:px-16 space-y-10 md:space-y-12">
             <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">Search Results for "{searchQuery}"</h2>
             {searchResults.length > 0 ? (
@@ -1275,6 +1303,16 @@ export default function App() {
               </div>
             )}
           </div>
+        ) : !isOnline || activeTab === "downloads" ? (
+          <DownloadsPage 
+             downloadedIds={downloadedIds}
+             downloadingIds={downloadingIds}
+             downloadingProgress={downloadingProgress}
+             onMovieClick={handleMovieClick}
+             onDownload={downloadMovie}
+             onToggleFavorite={toggleFavorite}
+             favorites={favorites}
+          />
         ) : activeTab === "favorites" ? (
           <FavoritesPage 
             favorites={favorites}

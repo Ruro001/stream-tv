@@ -6,6 +6,15 @@
     <title>Ruro Tv</title>
   </head>
   <body>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#E53935" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js');
+        });
+      }
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
