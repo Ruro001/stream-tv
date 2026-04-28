@@ -1035,7 +1035,7 @@ export default function App() {
     try {
       const results = await movieboxService.search(movie.title);
       if (results.length > 0) {
-        const sources = await movieboxService.getSources(results[0].subjectId, movie.type === 'tv' ? 1 : undefined, movie.type === 'tv' ? 1 : undefined);
+        const sources = await movieboxService.getSources(results[0].subjectId, results[0].detailPath, movie.type === 'tv' ? 1 : undefined, movie.type === 'tv' ? 1 : undefined);
         setAvailableDownloadQualities(sources.sort((a, b) => b.quality - a.quality));
       } else {
         setDownloadError("Could not find sources for this movie.");

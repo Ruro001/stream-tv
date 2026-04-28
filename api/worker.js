@@ -329,7 +329,7 @@ async function handleStream(url, request) {
     const urlObj = new URL(url);
     const streamUrl = urlObj.searchParams.get('url');
     
-    if (!streamUrl || (!streamUrl.startsWith('https://bcdnw.hakunaymatata.com/') && !streamUrl.startsWith('https://valiw.hakunaymatata.com/'))) {
+    if (!streamUrl || !streamUrl.includes('hakunaymatata.com/')) {
         return new Response(JSON.stringify({
             status: 'error',
             message: 'Invalid stream URL'
@@ -447,7 +447,7 @@ async function handleDownload(url, request) {
     const episode = urlObj.searchParams.get('episode');
     const quality = urlObj.searchParams.get('quality') || '';
     
-    if (!downloadUrl || (!downloadUrl.startsWith('https://bcdnw.hakunaymatata.com/') && !downloadUrl.startsWith('https://valiw.hakunaymatata.com/'))) {
+    if (!downloadUrl || !downloadUrl.includes('hakunaymatata.com/')) {
         return new Response(JSON.stringify({
             status: 'error',
             message: 'Invalid download URL'

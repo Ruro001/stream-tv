@@ -145,7 +145,11 @@ export const VideoPlayer = ({ mediaId, type, title, onClose, initialSeason = 1, 
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.currentTime = currentTimeSnapshot;
-          if (wasPlaying) videoRef.current.play();
+          if (wasPlaying) {
+            videoRef.current.play().catch(e => {
+              if (e.name !== 'AbortError') console.error("Play aborted:", e);
+            });
+          }
         }
       }, 300);
     }
@@ -184,8 +188,13 @@ export const VideoPlayer = ({ mediaId, type, title, onClose, initialSeason = 1, 
   const togglePlay = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (videoRef.current) {
-      if (isPlaying) videoRef.current.pause();
-      else videoRef.current.play();
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play().catch(e => {
+          if (e.name !== 'AbortError') console.error("Play failed:", e);
+        });
+      }
     }
   };
 
