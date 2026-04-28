@@ -101,48 +101,6 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black z-40 flex flex-col overflow-hidden">
-      {/* Background Image */}
-      <div className="absolute inset-0 z-0">
-        <img 
-          src={bgImage} 
-          alt="Background" 
-          className="w-full h-full object-cover opacity-60 transition-opacity duration-1000"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black/80" />
-      </div>
-
-      {/* Top Logo */}
-      <motion.div 
-        initial={{ y: -50, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.8, delay: 0.2 }}
-        className="relative z-10 pt-16 pb-4 flex justify-center"
-      >
-        <RuroLogo className="scale-90" />
-      </motion.div>
-
-      {/* Spacer to push card to bottom */}
-      <div className="flex-grow" />
-
-      {/* Login Card - Solid Dark */}
-      <motion.div 
-        initial={{ y: "100%" }}
-        animate={{ y: 0 }}
-        transition={{ type: "spring", damping: 25, stiffness: 200, delay: 0.4 }}
-        className="relative z-10 bg-[#0a0a0a] rounded-t-[2.5rem] px-6 pt-6 pb-12 w-full max-w-md mx-auto border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]"
-      >
-        {/* Drag Handle */}
-        <div className="w-12 h-1.5 bg-gray-700 rounded-full mx-auto mb-8" />
-
-        <h1 className="text-white text-3xl font-bold mb-2">
-          {step === 'email' ? 'Welcome back' : 'Check your email'}
-        </h1>
-        <p className="text-gray-400 text-sm mb-8">
-          {step === 'email' ? 'Sign in to continue' : `We sent a code to ${email}`}
-        </p>
-
   const handlePasswordSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
