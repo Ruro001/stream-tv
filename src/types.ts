@@ -63,7 +63,6 @@ export interface DownloadState {
   receivedBytes: number;
   totalBytes: number;
   speed: number; // bytes per second
-  streamUrl?: string; // Cache the URL for resume
   error?: string;
   abortController?: AbortController;
 }

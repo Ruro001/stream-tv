@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Media } from "../types";
 import { MovieCard } from "./MovieCard";
 import { storageService, StoredVideo } from "../services/storageService";
+import { downloadManager } from "../services/downloadManager";
 
 export const DownloadsPage = ({ 
   downloadedIds,
@@ -10,15 +11,19 @@ export const DownloadsPage = ({
   onMovieClick,
   onDownload,
   onToggleFavorite,
-  favorites
+  favorites,
+  onPause,
+  onResume
 }: {
   downloadedIds: Set<string>;
   downloadingIds: Set<string>;
-  downloadingProgress: Record<string, { progress: number; received: number; total: number }>;
+  downloadingProgress: Record<string, any>;
   onMovieClick: (movie: Media) => void;
   onDownload: (movie: Media) => void;
   onToggleFavorite: (movie: Media) => void;
   favorites: Set<string>;
+  onPause?: (id: string) => void;
+  onResume?: (id: string) => void;
 }) => {
   const [downloadedMovies, setDownloadedMovies] = useState<Media[]>([]);
 
@@ -59,41 +64,67 @@ export const DownloadsPage = ({
   return (
     <div className="pt-28 md:pt-32 px-6 md:px-16 space-y-10 min-h-[70vh] pb-32">
       <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight">Downloads</h2>
-      {downloadedMovies.length > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 md:gap-x-8 md:gap-y-12">
-          {downloadedMovies.map(movie => (
-            <div key={movie.id} className="flex flex-col gap-4 group">
-              <MovieCard 
-                movie={movie} 
-                onClick={onMovieClick}
-                onDownload={onDownload}
-                onToggleFavorite={onToggleFavorite}
-                isFavorite={favorites.has(movie.id)}
-                isDownloaded={true}
-                isDownloading={downloadingIds.has(movie.id)}
-                progress={downloadingProgress[movie.id]?.progress || 100}
-                received={downloadingProgress[movie.id]?.received}
-                total={downloadingProgress[movie.id]?.total}
-              />
-              <button 
-                onClick={() => handleExport(movie.id, movie.title)}
-                className="w-full bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-2 transition-all opacity-0 group-hover:opacity-100"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                Save to Device
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-24 text-gray-500 text-lg">
-          No downloads yet.
+      
+      {/* Active Downloads Section */}
+      {downloadingIds.size > 0 && (
+        <div className="space-y-6">
+          <h3 className="text-xl font-bold text-white/60">Active Downloads</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 md:gap-x-8 md:gap-y-12">
+             {downloadManager.getActiveDownloads().map(state => (
+               <MovieCard 
+                 key={state.mediaId}
+                 movie={state.movie}
+                 onClick={onMovieClick}
+                 onDownload={onDownload}
+                 onToggleFavorite={onToggleFavorite}
+                 isFavorite={favorites.has(state.mediaId)}
+                 isDownloaded={false}
+                 isDownloading={true}
+                 progressDetails={downloadingProgress[state.mediaId]}
+                 onPause={onPause}
+                 onResume={onResume}
+               />
+             ))}
+          </div>
         </div>
       )}
+
+      {/* Finished Downloads Section */}
+      <div className="space-y-6">
+        {downloadingIds.size > 0 && <h3 className="text-xl font-bold text-white/60">Saved to Device</h3>}
+        {downloadedMovies.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 md:gap-x-8 md:gap-y-12">
+            {downloadedMovies.map(movie => (
+              <div key={movie.id} className="flex flex-col gap-4 group">
+                <MovieCard 
+                  movie={movie} 
+                  onClick={onMovieClick}
+                  onDownload={onDownload}
+                  onToggleFavorite={onToggleFavorite}
+                  isFavorite={favorites.has(movie.id)}
+                  isDownloaded={true}
+                  isDownloading={false}
+                />
+                <button 
+                  onClick={() => handleExport(movie.id, movie.title)}
+                  className="w-full bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-2 transition-all opacity-0 group-hover:opacity-100"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Save to Device
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : downloadingIds.size === 0 && (
+          <div className="text-center py-24 text-gray-500 text-lg">
+            No downloads yet.
+          </div>
+        )}
+      </div>
     </div>
   );
 };

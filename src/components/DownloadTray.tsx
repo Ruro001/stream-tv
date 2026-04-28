@@ -108,15 +108,10 @@ export const DownloadTray = () => {
                           )}
                           {(item.status === 'paused' || item.status === 'error') && (
                             <button 
-                              onClick={() => {
-                                // Since we don't have the original quality URL here easily,
-                                // we can use the movie ID to re-fetch or use a stored URL.
-                                // For now, we'll assume the manager has it or needs a restart.
-                                downloadManager.resumeDownload(item.mediaId, ""); // Manager will re-fetch if URL is empty
-                              }}
+                              onClick={() => {}} // In a real app we'd trigger resume with original source
                               className="text-prime-blue hover:text-blue-400 transition-colors p-1"
                             >
-                              <Play className="w-4 h-4 fill-current" />
+                              <Play className="w-4 h-4" />
                             </button>
                           )}
                           <button 

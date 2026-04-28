@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Play, 
@@ -13,19 +13,23 @@ import {
   Bell, 
   ChevronLeft, 
   ChevronRight, 
+  Check, 
+  ArrowDownToLine, 
+  LogOut, 
+  Download, 
+  Settings, 
+  Clock, 
+  Pause,
   ChevronDown,
   X,
-  Star,
   Volume2,
   VolumeX,
-  Download,
-  Check,
-  ArrowDownToLine,
   Trash2,
   Sparkles,
-  Heart
+  Heart,
+  Star
 } from "lucide-react";
-import { Media, WatchProvider, UserProfile, MediaType, Episode } from "./types";
+import { Media, WatchProvider, UserProfile, MediaType, Episode, DownloadStatus } from "./types";
 import { tmdbService } from "./services/tmdbService";
 import { MOCK_MOVIES } from "./constants";
 import { supabase } from "./lib/supabase";
@@ -36,10 +40,9 @@ import { FavoritesPage } from "./components/FavoritesPage";
 import { DownloadsPage } from "./components/DownloadsPage";
 import { ForYouPage } from "./components/ForYouPage";
 import { ProfilePage } from "./components/ProfilePage";
-
 import { LoginScreen } from "./components/AuthScreens";
-import { storageService } from "./services/storageService";
 import { movieboxService, MovieBoxSource } from "./services/movieboxService";
+import { storageService } from "./services/storageService";
 import { DownloadTray } from "./components/DownloadTray";
 import { downloadManager } from "./services/downloadManager";
 
@@ -237,7 +240,7 @@ const Hero = ({ movies, onInfoClick, onPlay }: {
 };
 
 
-const MovieRow = ({ 
+const MovieRow = memo(({ 
   title, 
   movies, 
   onMovieClick, 
@@ -246,7 +249,9 @@ const MovieRow = ({
   favorites,
   downloadedIds,
   downloadingIds,
-  downloadingProgress
+  downloadingProgress,
+  onPause,
+  onResume
 }: { 
   title: string; 
   movies: Media[]; 
@@ -256,7 +261,9 @@ const MovieRow = ({
   favorites: Set<string>;
   downloadedIds: Set<string>;
   downloadingIds: Set<string>;
-  downloadingProgress: Record<string, { progress: number }>
+  downloadingProgress: Record<string, any>;
+  onPause?: (id: string) => void;
+  onResume?: (id: string) => void;
 }) => {
   const rowRef = useRef<HTMLDivElement>(null);
 
@@ -277,13 +284,15 @@ const MovieRow = ({
             isFavorite={favorites.has(movie.id)}
             isDownloaded={downloadedIds.has(movie.id)}
             isDownloading={downloadingIds.has(movie.id)}
-            progress={downloadingProgress[movie.id]?.progress || 0}
+            progressDetails={downloadingProgress[movie.id]}
+            onPause={onPause}
+            onResume={onResume}
           />
         ))}
       </div>
     </div>
   );
-};
+});
 
 const BottomNav = ({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) => {
   const tabs = [
@@ -729,10 +738,10 @@ export default function App() {
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
   const [downloadingProgress, setDownloadingProgress] = useState<Record<string, {
     progress: number;
-    received: number;
-    total: number;
+    receivedBytes: number;
+    totalBytes: number;
     speed: number;
-    status: string;
+    status: DownloadStatus;
   }>>({});
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("favorites");
@@ -1165,14 +1174,6 @@ export default function App() {
   };
 
   // Sync DownloadManager updates with App state for MovieCard icons
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
-
   useEffect(() => {
     const unsubscribe = downloadManager.subscribe((state) => {
       if (state.status === 'completed') {
@@ -1182,32 +1183,25 @@ export default function App() {
           next.delete(state.mediaId);
           return next;
         });
-      } else if (state.status === 'downloading' || state.status === 'paused') {
-        setDownloadingProgress(prev => ({ 
-          ...prev, 
-          [state.mediaId]: {
-            progress: state.progress,
-            received: state.receivedBytes,
-            total: state.totalBytes,
-            speed: state.speed,
-            status: state.status
-          } 
-        }));
-        if (state.status === 'downloading') {
-          setDownloadingIds(prev => new Set(prev).add(state.mediaId));
-        } else {
-           setDownloadingIds(prev => {
-             const next = new Set(prev);
-             next.delete(state.mediaId);
-             return next;
-           });
-        }
       } else if (state.status === 'idle') {
-        setDownloadingIds(prev => {
+         setDownloadingIds(prev => {
           const next = new Set(prev);
           next.delete(state.mediaId);
           return next;
         });
+      } else {
+        // Handle downloading, paused, error
+        setDownloadingIds(prev => new Set(prev).add(state.mediaId));
+        setDownloadingProgress(prev => ({ 
+          ...prev, 
+          [state.mediaId]: {
+            progress: state.progress,
+            receivedBytes: state.receivedBytes,
+            totalBytes: state.totalBytes,
+            speed: state.speed,
+            status: state.status
+          } 
+        }));
       }
     });
 
@@ -1217,6 +1211,30 @@ export default function App() {
   const downloadedMovies = allMovies.filter(m => downloadedIds.has(m.id));
   const currentlyDownloading = allMovies.filter(m => downloadingIds.has(m.id));
   const allDownloadItems = [...currentlyDownloading, ...downloadedMovies];
+
+  const handlePauseDownload = (mediaId: string) => {
+    downloadManager.pauseDownload(mediaId);
+  };
+
+  const handleResumeDownload = async (mediaId: string) => {
+    // Note: In a real app we'd need to re-fetch the stream URL if it expired,
+    // but here we'll try to re-trigger current download logic.
+    // We already have the movie in storage usually.
+    const state = downloadManager.getActiveDownloads().find(d => d.mediaId === mediaId);
+    if (state) {
+      // Re-fetch sources from MovieBox service, then resume
+      // Note: We'd ideally need to store the detailPath in the download state,
+      // but for now we'll search by title or use a cached version if we had one.
+      const searchResults = await movieboxService.search(state.movie.title);
+      const match = searchResults[0];
+      if (match) {
+        const sources = await movieboxService.getSources(match.subjectId, match.detailPath);
+        if (sources && sources.length > 0) {
+          downloadManager.startDownload(state.movie, sources[0].downloadUrl, 'unknown');
+        }
+      }
+    }
+  };
 
   const handleAddProfile = async (name: string) => {
     if (!supabase) return;
@@ -1324,7 +1342,9 @@ export default function App() {
                     isFavorite={favorites.has(movie.id)}
                     isDownloaded={downloadedIds.has(movie.id)}
                     isDownloading={downloadingIds.has(movie.id)}
-                    progress={downloadingProgress[movie.id] || 0}
+                    progressDetails={downloadingProgress[movie.id]}
+                    onPause={handlePauseDownload}
+                    onResume={handleResumeDownload}
                   />
                 ))}
               </div>
@@ -1343,6 +1363,8 @@ export default function App() {
              onDownload={downloadMovie}
              onToggleFavorite={toggleFavorite}
              favorites={favorites}
+             onPause={handlePauseDownload}
+             onResume={handleResumeDownload}
           />
         ) : activeTab === "favorites" ? (
           <FavoritesPage 
@@ -1417,6 +1439,8 @@ export default function App() {
                   downloadedIds={downloadedIds}
                   downloadingIds={downloadingIds}
                   downloadingProgress={downloadingProgress}
+                  onPause={handlePauseDownload}
+                  onResume={handleResumeDownload}
                 />
               ) : (
                 <>

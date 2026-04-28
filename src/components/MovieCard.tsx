@@ -1,8 +1,9 @@
+import React, { memo } from "react";
 import { motion } from "motion/react";
-import { Star, Check, ArrowDownToLine, Heart } from "lucide-react";
+import { Star, Check, ArrowDownToLine, Heart, Pause, Play } from "lucide-react";
 import { Media } from "../types";
 
-export const MovieCard = ({ 
+export const MovieCard = memo(({ 
   movie, 
   onClick, 
   onDownload,
@@ -10,29 +11,37 @@ export const MovieCard = ({
   isFavorite,
   isDownloaded,
   isDownloading,
-  progress,
-  received,
-  total
+  progressDetails,
+  onPause,
+  onResume
 }: { 
   movie: Media; 
   onClick: (movie: Media) => void; 
-  onDownload: (movie: Media) => void; 
+  onDownload: (movie: Media) => void;
   onToggleFavorite: (movie: Media) => void;
   isFavorite: boolean;
   isDownloaded: boolean;
   isDownloading: boolean;
-  progress: number;
-  received?: number;
-  total?: number;
+  progressDetails?: {
+    progress: number;
+    receivedBytes: number;
+    totalBytes: number;
+    speed: number;
+    status: string;
+  };
+  onPause?: (id: string) => void;
+  onResume?: (id: string) => void;
   key?: string | number;
 }) => {
-  const formatBytes = (bytes?: number) => {
-    if (!bytes || bytes === 0) return '0 B';
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
+
+  const isPaused = progressDetails?.status === 'paused';
 
   return (
     <motion.div 
@@ -48,6 +57,46 @@ export const MovieCard = ({
           className="w-full h-full object-cover"
           onError={(e) => { (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/movie/500/750'; }}
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        
+        {/* Progress Overlay */}
+        {isDownloading && progressDetails && (
+          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-3 text-center">
+            <div className="w-12 h-12 rounded-full border-2 border-white/20 flex items-center justify-center mb-2">
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  isPaused ? onResume?.(movie.id) : onPause?.(movie.id);
+                }}
+                className="hover:scale-110 transition-transform"
+              >
+                {isPaused ? (
+                  <Play className="w-6 h-6 text-white fill-white" />
+                ) : (
+                  <Pause className="w-6 h-6 text-white fill-white" />
+                )}
+              </button>
+            </div>
+            <div className="w-full bg-white/20 h-1 rounded-full overflow-hidden mb-2">
+              <div 
+                className="bg-[#E53935] h-full transition-all duration-300"
+                style={{ width: `${progressDetails.progress}%` }}
+              />
+            </div>
+            <p className="text-white text-[10px] font-bold">
+              {formatBytes(progressDetails.receivedBytes)} / {formatBytes(progressDetails.totalBytes)}
+            </p>
+            {progressDetails.speed > 0 && !isPaused && (
+              <p className="text-gray-400 text-[8px] mt-1 italic">
+                {formatBytes(progressDetails.speed)}/s
+              </p>
+            )}
+            {isPaused && (
+              <p className="text-yellow-500 text-[8px] mt-1 font-bold">PAUSED</p>
+            )}
+          </div>
+        )}
+
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
         
         {/* Top Left Badges */}
@@ -90,22 +139,7 @@ export const MovieCard = ({
         </button>
 
         {/* Title */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 z-10 flex flex-col gap-1.5">
-          {isDownloading && total && (
-            <div className="flex flex-col gap-1">
-              <div className="flex justify-between items-center text-[8px] text-white font-bold drop-shadow-md">
-                <span>{formatBytes(received)} / {formatBytes(total)}</span>
-                <span>{Math.round(progress)}%</span>
-              </div>
-              <div className="h-1 bg-white/20 rounded-full overflow-hidden">
-                <motion.div 
-                  className="h-full bg-prime-blue"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
-          )}
+        <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
           <h3 className="text-white text-xs md:text-sm font-bold truncate drop-shadow-md">
             {movie.title}
           </h3>
@@ -113,4 +147,4 @@ export const MovieCard = ({
       </div>
     </motion.div>
   );
-};
+});
