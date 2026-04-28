@@ -1477,7 +1477,7 @@ export default function App() {
                      user_id: activeProfile.id,
                      media_id: playingMovie.id,
                      timestamp: time
-                  }).then(({ error }) => {
+                  }, { onConflict: 'user_id,media_id' }).then(({ error }) => {
                     if (error) console.error("Error updating progress:", error);
                   });
                }
