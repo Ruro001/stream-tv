@@ -809,6 +809,66 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Fetch profiles from Supabase when logged in
+  useEffect(() => {
+    if (appState === 'main' && supabase) {
+      const loadProfiles = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: dbProfiles, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error("Error fetching profiles:", error);
+          return;
+        }
+
+        if (dbProfiles && dbProfiles.length > 0) {
+          // Map DB profiles to UserProfile interface
+          const mapped: UserProfile[] = dbProfiles.map(p => ({
+            id: p.id,
+            name: p.name,
+            avatar: p.avatar || (p.name ? p.name[0].toUpperCase() : 'U'),
+            color: p.color || 'bg-prime-blue'
+          }));
+          setProfiles(mapped);
+        } else {
+          // No profiles found, create a default one
+          const newProfile: UserProfile = {
+            id: crypto.randomUUID(), // Temporarily, it will be replaced by DB ID
+            name: user.email?.split('@')[0] || "User",
+            avatar: user.email?.[0].toUpperCase() || "U",
+            color: "bg-prime-blue"
+          };
+
+          const { data: created, error: createError } = await supabase
+            .from('profiles')
+            .insert({
+              user_id: user.id,
+              name: newProfile.name,
+              avatar: newProfile.avatar,
+              color: newProfile.color
+            })
+            .select()
+            .single();
+
+          if (created && !createError) {
+             setProfiles([{
+               id: created.id,
+               name: created.name,
+               avatar: created.avatar,
+               color: created.color
+             }]);
+          }
+        }
+      };
+      loadProfiles();
+    }
+  }, [appState]);
+
   useEffect(() => {
     localStorage.setItem("profiles", JSON.stringify(profiles));
   }, [profiles]);
@@ -1095,14 +1155,37 @@ export default function App() {
   const currentlyDownloading = allMovies.filter(m => downloadingIds.has(m.id));
   const allDownloadItems = [...currentlyDownloading, ...downloadedMovies];
 
-  const handleAddProfile = (name: string) => {
-    const newProfile: UserProfile = {
-      id: Date.now().toString(),
-      name,
-      avatar: name[0].toUpperCase(),
-      color: ["bg-prime-blue", "bg-green-500", "bg-netflix-red", "bg-yellow-500", "bg-purple-500"][profiles.length % 5]
-    };
-    setProfiles(prev => [...prev, newProfile]);
+  const handleAddProfile = async (name: string) => {
+    if (!supabase) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const color = ["bg-prime-blue", "bg-green-500", "bg-netflix-red", "bg-yellow-500", "bg-purple-500"][profiles.length % 5];
+    const avatar = name[0].toUpperCase();
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert({
+        user_id: user.id,
+        name,
+        avatar,
+        color
+      })
+      .select()
+      .single();
+
+    if (!error && data) {
+      const newProfile: UserProfile = {
+        id: data.id,
+        name: data.name,
+        avatar: data.avatar,
+        color: data.color
+      };
+      setProfiles(prev => [...prev, newProfile]);
+    } else {
+      console.error("Error creating profile:", error);
+    }
   };
 
   if (appState === 'loading') {
