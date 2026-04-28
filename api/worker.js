@@ -755,6 +755,12 @@ export default {
                 return await handleInfo(movieId);
             }
             
+            if (url.pathname === '/api/sources') {
+                const subjectId = url.searchParams.get('subjectId');
+                if (!subjectId) return new Response('Missing subjectId', { status: 400 });
+                return await handleSources(subjectId, request.url, request);
+            }
+
             if (url.pathname.startsWith('/api/sources/')) {
                 const movieId = url.pathname.split('/api/sources/')[1];
                 return await handleSources(movieId, request.url, request);
