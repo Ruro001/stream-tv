@@ -1,0 +1,43 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Setup Capacitor
+        run: |
+          npm install @capacitor/core @capacitor/cli
+          npx cap init RuroTV com.ruro.tv || true
+          npx cap add android || true
+          npx cap copy
+
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ruro-tv-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
