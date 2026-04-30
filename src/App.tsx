@@ -40,7 +40,7 @@ import { FavoritesPage } from "./components/FavoritesPage";
 import { DownloadsPage } from "./components/DownloadsPage";
 import { ForYouPage } from "./components/ForYouPage";
 import { ProfilePage } from "./components/ProfilePage";
-import { LoginScreen } from "./components/AuthScreens";
+import { LoginScreen, UpdatePasswordScreen } from "./components/AuthScreens";
 import { movieboxService, MovieBoxSource } from "./services/movieboxService";
 import { storageService } from "./services/storageService";
 import { DownloadTray } from "./components/DownloadTray";
@@ -716,7 +716,7 @@ const MovieDetails = ({
 };
 
 export default function App() {
-  const [appState, setAppState] = useState<'loading' | 'login' | 'main'>('loading');
+  const [appState, setAppState] = useState<'loading' | 'login' | 'main' | 'update-password'>('loading');
   const [selectedMovie, setSelectedMovie] = useState<Media | null>(null);
   const [playingMovie, setPlayingMovie] = useState<Media | null>(null);
   const [playingEpisode, setPlayingEpisode] = useState<Episode | null>(null);
@@ -849,8 +849,14 @@ export default function App() {
       setAppState(session ? 'main' : 'login');
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAppState(session ? 'main' : 'login');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setAppState('update-password');
+      } else if (event === 'SIGNED_OUT') {
+        setAppState('login');
+      } else {
+        setAppState(session ? 'main' : 'login');
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -1279,6 +1285,10 @@ export default function App() {
 
   if (appState === 'login') {
     return <LoginScreen onLogin={() => setAppState('main')} />;
+  }
+
+  if (appState === 'update-password') {
+    return <UpdatePasswordScreen onSuccess={() => setAppState('main')} />;
   }
 
   return (

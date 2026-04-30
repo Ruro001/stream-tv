@@ -24,6 +24,36 @@ export const RuroLogo = ({ className = "" }: { className?: string }) => (
   </div>
 );
 
+// Moved out of LoginScreen to prevent re-rendering and focus loss
+const InputField = ({ icon: Icon, type, placeholder, value, onChange, isPassword = false, autoComplete }: any) => {
+  const [showPassword, setShowPassword] = useState(false);
+  return (
+    <div className="relative">
+      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+        <Icon className="h-5 w-5 text-gray-500" />
+      </div>
+      <input
+        type={isPassword && !showPassword ? "password" : type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        className="w-full bg-[#1a1a1a]/80 text-white pl-12 pr-12 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all"
+        required
+      />
+      {isPassword && (
+        <button
+          type="button"
+          onClick={() => setShowPassword(!showPassword)}
+          className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-white transition-colors"
+        >
+          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+        </button>
+      )}
+    </div>
+  );
+};
+
 type AuthView = 'login' | 'signup' | 'forgot-password' | 'magic-link' | 'magic-link-verify';
 
 export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
@@ -34,7 +64,6 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [otp, setOtp] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -170,31 +199,6 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
     }
   };
 
-  const InputField = ({ icon: Icon, type, placeholder, value, onChange, isPassword = false }: any) => (
-    <div className="relative">
-      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-        <Icon className="h-5 w-5 text-gray-500" />
-      </div>
-      <input
-        type={isPassword && !showPassword ? "password" : type}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        className="w-full bg-[#1a1a1a]/80 text-white pl-12 pr-12 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all"
-        required
-      />
-      {isPassword && (
-        <button
-          type="button"
-          onClick={() => setShowPassword(!showPassword)}
-          className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-white transition-colors"
-        >
-          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-        </button>
-      )}
-    </div>
-  );
-
   return (
     <div className="fixed inset-0 bg-black z-40 flex flex-col overflow-hidden">
       {/* Background Image */}
@@ -281,8 +285,8 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
             {/* Login Form */}
             {view === 'login' && (
               <form onSubmit={handleLogin} className="space-y-4">
-                <InputField icon={Mail} type="email" placeholder="Email Address" value={email} onChange={(e: any) => setEmail(e.target.value)} />
-                <InputField icon={Lock} type="password" placeholder="Password" value={password} onChange={(e: any) => setPassword(e.target.value)} isPassword />
+                <InputField icon={Mail} type="email" placeholder="Email Address" value={email} onChange={(e: any) => setEmail(e.target.value)} autoComplete="email" />
+                <InputField icon={Lock} type="password" placeholder="Password" value={password} onChange={(e: any) => setPassword(e.target.value)} isPassword autoComplete="current-password" />
                 
                 <div className="flex justify-end mt-2 mb-6">
                   <button type="button" onClick={() => setView('forgot-password')} className="text-sm text-gray-400 hover:text-white transition-colors">
@@ -319,9 +323,9 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
             {/* Signup Form */}
             {view === 'signup' && (
               <form onSubmit={handleSignup} className="space-y-4">
-                <InputField icon={User} type="text" placeholder="Username" value={username} onChange={(e: any) => setUsername(e.target.value)} />
-                <InputField icon={Mail} type="email" placeholder="Email Address" value={email} onChange={(e: any) => setEmail(e.target.value)} />
-                <InputField icon={Lock} type="password" placeholder="Password (min 6 chars)" value={password} onChange={(e: any) => setPassword(e.target.value)} isPassword />
+                <InputField icon={User} type="text" placeholder="Username" value={username} onChange={(e: any) => setUsername(e.target.value)} autoComplete="username" />
+                <InputField icon={Mail} type="email" placeholder="Email Address" value={email} onChange={(e: any) => setEmail(e.target.value)} autoComplete="email" />
+                <InputField icon={Lock} type="password" placeholder="Password (min 6 chars)" value={password} onChange={(e: any) => setPassword(e.target.value)} isPassword autoComplete="new-password" />
 
                 <button 
                   type="submit" disabled={isLoading}
@@ -335,7 +339,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
             {/* Forgot Password Form */}
             {view === 'forgot-password' && (
               <form onSubmit={handleForgotPassword} className="space-y-4">
-                <InputField icon={Mail} type="email" placeholder="Email Address" value={email} onChange={(e: any) => setEmail(e.target.value)} />
+                <InputField icon={Mail} type="email" placeholder="Email Address" value={email} onChange={(e: any) => setEmail(e.target.value)} autoComplete="email" />
 
                 <button 
                   type="submit" disabled={isLoading}
@@ -349,7 +353,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
             {/* Magic Link Request Form */}
             {view === 'magic-link' && (
               <form onSubmit={handleSendOtp} className="space-y-4">
-                <InputField icon={Mail} type="email" placeholder="Email Address" value={email} onChange={(e: any) => setEmail(e.target.value)} />
+                <InputField icon={Mail} type="email" placeholder="Email Address" value={email} onChange={(e: any) => setEmail(e.target.value)} autoComplete="email" />
 
                 <button 
                   type="submit" disabled={isLoading}
@@ -369,6 +373,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
                     placeholder="Enter 8-digit code" 
+                    autoComplete="one-time-code"
                     className="w-full bg-[#1a1a1a]/80 text-white px-5 py-4 rounded-xl border border-white/5 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder-gray-500 transition-all text-center tracking-widest text-xl font-mono"
                     required
                     maxLength={8}
@@ -386,6 +391,78 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
 
           </motion.div>
         </AnimatePresence>
+      </motion.div>
+    </div>
+  );
+};
+
+export const UpdatePasswordScreen = ({ onSuccess }: { onSuccess: () => void }) => {
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) return;
+    
+    setIsLoading(true);
+    setError("");
+    
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: password
+      });
+      if (error) throw error;
+      onSuccess();
+    } catch (err: any) {
+      setError(err.message || "Failed to update password");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black z-40 flex flex-col overflow-hidden items-center justify-center">
+      <div className="absolute inset-0 bg-gradient-to-b from-black/80 to-black" />
+      
+      <motion.div 
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="relative z-10 bg-[#0a0a0a] rounded-3xl p-8 w-full max-w-md border border-white/10 shadow-2xl"
+      >
+        <div className="flex justify-center mb-6">
+          <div className="w-16 h-16 bg-[#E50914]/20 rounded-full flex items-center justify-center">
+            <Lock className="w-8 h-8 text-[#E50914]" />
+          </div>
+        </div>
+        
+        <h2 className="text-2xl font-bold text-white text-center mb-2">Update Password</h2>
+        <p className="text-gray-400 text-center text-sm mb-8">Please enter your new password below.</p>
+        
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl mb-6 text-sm">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleUpdate} className="space-y-6">
+          <InputField 
+            icon={Lock} 
+            type="password" 
+            placeholder="New Password (min 6 chars)" 
+            value={password} 
+            onChange={(e: any) => setPassword(e.target.value)} 
+            isPassword 
+            autoComplete="new-password" 
+          />
+
+          <button 
+            type="submit" disabled={isLoading || password.length < 6}
+            className="w-full bg-[#E50914] hover:bg-[#b20710] disabled:bg-[#E50914]/50 text-white font-bold py-4 rounded-xl transition-colors text-lg flex items-center justify-center shadow-lg"
+          >
+            {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Save New Password'}
+          </button>
+        </form>
       </motion.div>
     </div>
   );
