@@ -33,7 +33,7 @@ const InputField = ({ icon: Icon, type, placeholder, value, onChange, isPassword
         <Icon className="h-5 w-5 text-gray-500" />
       </div>
       <input
-        type={isPassword && !showPassword ? "password" : type}
+        type={isPassword ? (showPassword ? "text" : "password") : type}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
@@ -200,7 +200,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black z-40 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black z-40 flex flex-col overflow-y-auto">
       {/* Background Image */}
       <div className="absolute inset-0 z-0">
         <img 
