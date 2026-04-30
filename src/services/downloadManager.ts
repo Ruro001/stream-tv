@@ -6,7 +6,6 @@ type DownloadUpdateCallback = (state: DownloadState) => void;
 class DownloadManager {
   private activeDownloads: Map<string, DownloadState> = new Map();
   private subscribers: Set<DownloadUpdateCallback> = new Set();
-  private speedInterval: number = 1000; // update speed every second
 
   subscribe(callback: DownloadUpdateCallback) {
     this.subscribers.add(callback);
@@ -73,6 +72,7 @@ class DownloadManager {
     if (!state || !state.abortController) return;
 
     let speedIntervalId: any;
+    let chunks: Uint8Array[] = [...initialChunks];
 
     try {
       let finalUrl = downloadUrl;
@@ -97,7 +97,6 @@ class DownloadManager {
 
       state.totalBytes = totalBytes;
       let receivedBytes = startByte;
-      let chunks = [...initialChunks];
       let lastBytes = startByte;
       let lastUpdate = performance.now();
 
@@ -130,12 +129,8 @@ class DownloadManager {
         state.receivedBytes = receivedBytes;
         state.progress = totalBytes > 0 ? (receivedBytes / totalBytes) * 100 : 0;
         
-        // Save partial every 10MB to avoid heavy disk IO while keeping it resumable
-        if (chunks.length % 100 === 0) {
-          const blob = new Blob(chunks as BlobPart[], { type: 'video/mp4' });
-          storageService.savePartialVideo(mediaId, blob, movie, quality).catch(console.error);
-          this.notify({ ...state });
-        }
+        // Removed heavy partial save inside loop to prevent UI sluggishness
+        // Progress updates will just visually update the UI quickly
       }
 
       clearInterval(speedIntervalId);
@@ -154,6 +149,14 @@ class DownloadManager {
       if (speedIntervalId) clearInterval(speedIntervalId);
       
       if (error.name === 'AbortError') {
+        // Save partial ONLY when aborted to avoid heavy disk IO during active downloads
+        try {
+           const blob = new Blob(chunks as BlobPart[], { type: 'video/mp4' });
+           await storageService.savePartialVideo(mediaId, blob, movie, quality);
+        } catch (e) {
+           console.error("Failed to save partial download state:", e);
+        }
+        
         state.status = 'paused';
         state.speed = 0;
         this.notify({ ...state });
