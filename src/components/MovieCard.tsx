@@ -147,4 +147,10 @@ export const MovieCard = memo(({
       </div>
     </motion.div>
   );
+}, (prevProps, nextProps) => {
+  return prevProps.movie.id === nextProps.movie.id &&
+         prevProps.isFavorite === nextProps.isFavorite &&
+         prevProps.isDownloaded === nextProps.isDownloaded &&
+         prevProps.isDownloading === nextProps.isDownloading &&
+         prevProps.progressDetails === nextProps.progressDetails;
 });

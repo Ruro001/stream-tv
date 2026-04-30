@@ -118,7 +118,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
     resetMessages();
     
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -128,6 +128,9 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
         }
       });
       if (error) throw error;
+      if (data?.user && data.user.identities && data.user.identities.length === 0) {
+        throw new Error("User already registered with this email address.");
+      }
       setSuccessMsg("Signup successful! Please check your email to verify your account.");
       setView('login');
     } catch (err: any) {

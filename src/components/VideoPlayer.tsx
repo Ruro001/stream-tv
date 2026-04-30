@@ -16,7 +16,7 @@ interface VideoPlayerProps {
   initialSeason?: number;
   initialEpisode?: number;
   initialTime?: number;
-  onProgressUpdate?: (time: number) => void;
+  onProgressUpdate?: (time: number, duration: number) => void;
 }
 
 export const VideoPlayer = ({ mediaId, type, title, onClose, initialSeason = 1, initialEpisode = 1, initialTime = 0, onProgressUpdate }: VideoPlayerProps) => {
@@ -204,7 +204,7 @@ export const VideoPlayer = ({ mediaId, type, title, onClose, initialSeason = 1, 
       setCurrentTime(current);
 
       if (onProgressUpdate && Math.abs(current - lastSyncTimeRef.current) > 5) {
-        onProgressUpdate(current);
+        onProgressUpdate(current, videoRef.current.duration);
         lastSyncTimeRef.current = current;
       }
     }
@@ -339,7 +339,6 @@ export const VideoPlayer = ({ mediaId, type, title, onClose, initialSeason = 1, 
         /* Video Container */
         <div 
           className="relative flex-1 bg-black w-full h-full" 
-          onClick={togglePlay}
           onDoubleClick={() => setIsFitScreen(!isFitScreen)}
         >
           {streamUrl && (
@@ -480,29 +479,29 @@ export const VideoPlayer = ({ mediaId, type, title, onClose, initialSeason = 1, 
                   {/* Skip Back 10 */}
                   <button 
                     onClick={(e) => skip(-10, e)}
-                    className="p-4 md:p-5 rounded-full bg-black/30 border border-white/10 text-white hover:bg-black/50 hover:scale-110 transition-all pointer-events-auto backdrop-blur-md shadow-2xl"
+                    className="p-3 md:p-4 rounded-full bg-black/30 border border-white/10 text-white hover:bg-black/50 hover:scale-110 transition-all pointer-events-auto backdrop-blur-md shadow-2xl"
                   >
-                    <RotateCcw className="w-8 h-8 md:w-10 md:h-10" />
+                    <RotateCcw className="w-6 h-6 md:w-8 md:h-8" />
                   </button>
 
                   {/* Play/Pause Center Indicator */}
                   <button 
                     onClick={togglePlay}
-                    className="p-6 md:p-8 rounded-full bg-black/40 border border-white/10 text-white hover:bg-[#E53935]/90 hover:scale-110 transition-all pointer-events-auto backdrop-blur-md shadow-2xl"
+                    className="p-4 md:p-6 rounded-full bg-black/40 border border-white/10 text-white hover:bg-[#E53935]/90 hover:scale-110 transition-all pointer-events-auto backdrop-blur-md shadow-2xl"
                   >
                     {isPlaying ? (
-                      <Pause className="w-12 h-12 md:w-16 md:h-16 fill-current" />
+                      <Pause className="w-8 h-8 md:w-12 md:h-12 fill-current" />
                     ) : (
-                      <Play className="w-12 h-12 md:w-16 md:h-16 fill-current ml-2" />
+                      <Play className="w-8 h-8 md:w-12 md:h-12 fill-current ml-1.5" />
                     )}
                   </button>
 
                   {/* Skip Forward 10 */}
                   <button 
                     onClick={(e) => skip(10, e)}
-                    className="p-4 md:p-5 rounded-full bg-black/30 border border-white/10 text-white hover:bg-black/50 hover:scale-110 transition-all pointer-events-auto backdrop-blur-md shadow-2xl"
+                    className="p-3 md:p-4 rounded-full bg-black/30 border border-white/10 text-white hover:bg-black/50 hover:scale-110 transition-all pointer-events-auto backdrop-blur-md shadow-2xl"
                   >
-                    <RotateCw className="w-8 h-8 md:w-10 md:h-10" />
+                    <RotateCw className="w-6 h-6 md:w-8 md:h-8" />
                   </button>
                 </div>
 

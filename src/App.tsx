@@ -1223,21 +1223,25 @@ export default function App() {
   };
 
   const handleResumeDownload = async (mediaId: string) => {
-    // Note: In a real app we'd need to re-fetch the stream URL if it expired,
-    // but here we'll try to re-trigger current download logic.
-    // We already have the movie in storage usually.
     const state = downloadManager.getActiveDownloads().find(d => d.mediaId === mediaId);
     if (state) {
-      // Re-fetch sources from MovieBox service, then resume
-      // Note: We'd ideally need to store the detailPath in the download state,
-      // but for now we'll search by title or use a cached version if we had one.
-      const searchResults = await movieboxService.search(state.movie.title);
-      const match = searchResults[0];
-      if (match) {
-        const sources = await movieboxService.getSources(match.subjectId, match.detailPath);
-        if (sources && sources.length > 0) {
-          downloadManager.startDownload(state.movie, sources[0].downloadUrl, 'unknown');
+      // Stream URLs expire, so we must fetch a fresh one to resume
+      try {
+        const searchResults = await movieboxService.search(state.movie.title);
+        const match = searchResults.find(r => r.subjectType === (state.movie.type === 'tv' ? 2 : 1)) || searchResults[0];
+        
+        if (match) {
+          const sources = await movieboxService.getSources(match.subjectId, match.detailPath, state.movie.type === 'tv' ? 1 : undefined, state.movie.type === 'tv' ? 1 : undefined);
+          if (sources && sources.length > 0) {
+             const bestSource = sources.sort((a, b) => b.quality - a.quality)[0];
+             downloadManager.startDownload(state.movie, bestSource.downloadUrl, `${bestSource.quality}p`);
+          } else {
+             alert("Could not find a fresh download link to resume.");
+          }
         }
+      } catch (e) {
+        console.error("Failed to fetch fresh resume URL", e);
+        alert("Failed to resume download.");
       }
     }
   };
@@ -1667,20 +1671,38 @@ export default function App() {
             initialSeason={playingEpisode?.seasonNumber}
             initialEpisode={playingEpisode?.episodeNumber}
             initialTime={userProgress[playingMovie.id] || 0}
-            onProgressUpdate={(time) => {
-               setUserProgress(prev => {
-                  const updated = { ...prev, [playingMovie.id]: time };
-                  localStorage.setItem("userProgress", JSON.stringify(updated));
-                  return updated;
-               });
-               if (activeProfile && supabase) {
-                  supabase.from('user_media_progress').upsert({
-                     user_id: activeProfile.id,
-                     media_id: playingMovie.id,
-                     timestamp: time
-                  }, { onConflict: 'user_id,media_id' }).then(({ error }) => {
-                    if (error) console.error("Error updating progress:", error);
-                  });
+            onProgressUpdate={(time, duration) => {
+               if (time > duration * 0.9) {
+                 // Over 90% watched, remove from continue watching
+                 setRecentlyWatched(prev => {
+                   const next = prev.filter(m => m.id !== playingMovie.id);
+                   localStorage.setItem("recentlyWatched", JSON.stringify(next));
+                   return next;
+                 });
+                 setUserProgress(prev => {
+                   const next = { ...prev };
+                   delete next[playingMovie.id];
+                   localStorage.setItem("userProgress", JSON.stringify(next));
+                   return next;
+                 });
+                 if (activeProfile && supabase) {
+                    supabase.from('user_media_progress').delete().match({ user_id: activeProfile.id, media_id: playingMovie.id }).then();
+                 }
+               } else {
+                 setUserProgress(prev => {
+                    const updated = { ...prev, [playingMovie.id]: time };
+                    localStorage.setItem("userProgress", JSON.stringify(updated));
+                    return updated;
+                 });
+                 if (activeProfile && supabase) {
+                    supabase.from('user_media_progress').upsert({
+                       user_id: activeProfile.id,
+                       media_id: playingMovie.id,
+                       timestamp: time
+                    }, { onConflict: 'user_id,media_id' }).then(({ error }) => {
+                      if (error) console.error("Error updating progress:", error);
+                    });
+                 }
                }
             }}
           />
