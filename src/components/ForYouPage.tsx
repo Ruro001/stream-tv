@@ -19,7 +19,7 @@ export const ForYouPage = ({
   favorites: Set<string>;
   downloadedIds: Set<string>;
   downloadingIds: Set<string>;
-  downloadingProgress: Record<string, number>;
+  downloadingProgress: Record<string, any>;
 }) => {
   return (
     <div className="pt-28 md:pt-32 px-6 md:px-16 space-y-10 min-h-[70vh] pb-32">
@@ -36,7 +36,7 @@ export const ForYouPage = ({
               isFavorite={favorites.has(movie.id)}
               isDownloaded={downloadedIds.has(movie.id)}
               isDownloading={downloadingIds.has(movie.id)}
-              progress={downloadingProgress[movie.id] || 0}
+              progressDetails={downloadingProgress[movie.id]}
             />
           ))}
         </div>

@@ -19,7 +19,7 @@ export const FavoritesPage = ({
   onToggleFavorite: (movie: Media) => void;
   downloadedIds: Set<string>;
   downloadingIds: Set<string>;
-  downloadingProgress: Record<string, number>;
+  downloadingProgress: Record<string, any>;
 }) => {
   const allMovies = Array.from(new Map(movieLists.flat().map(m => [m.id, m])).values());
   const favoriteMovies = allMovies.filter(movie => favorites.has(movie.id));
@@ -39,7 +39,7 @@ export const FavoritesPage = ({
               isFavorite={true}
               isDownloaded={downloadedIds.has(movie.id)}
               isDownloading={downloadingIds.has(movie.id)}
-              progress={downloadingProgress[movie.id] || 0}
+              progressDetails={downloadingProgress[movie.id]}
             />
           ))}
         </div>

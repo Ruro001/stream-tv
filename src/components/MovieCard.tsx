@@ -1,7 +1,8 @@
-import React, { memo } from "react";
+import React, { memo, useState } from "react";
 import { motion } from "motion/react";
 import { Star, Check, ArrowDownToLine, Heart, Pause, Play } from "lucide-react";
 import { Media } from "../types";
+import { hapticsService } from "../services/hapticsService";
 
 export const MovieCard = memo(({ 
   movie, 
@@ -42,22 +43,38 @@ export const MovieCard = memo(({
   };
 
   const isPaused = progressDetails?.status === 'paused';
+  const [imgLoaded, setImgLoaded] = useState(false);
+
+  const handleClick = () => {
+    hapticsService.impactLight();
+    onClick(movie);
+  };
 
   return (
     <motion.div 
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
-      onClick={() => onClick(movie)}
+      onClick={handleClick}
       className="flex-none w-[120px] md:w-[180px] cursor-pointer"
     >
-      <div className="relative aspect-[2/3] rounded-2xl overflow-hidden shadow-lg border border-white/5">
+      <motion.div 
+        layoutId={`poster-${movie.id}`}
+        className="relative aspect-[2/3] rounded-2xl overflow-hidden shadow-lg border border-white/5"
+      >
+        {/* Shimmer placeholder behind image */}
+        {!imgLoaded && (
+          <div className="absolute inset-0 bg-white/5">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_1.5s_linear_infinite]" style={{ backgroundSize: '200% 100%' }} />
+          </div>
+        )}
         <img 
           src={movie.thumbnail} 
           alt={movie.title}
-          className="w-full h-full object-cover"
-          onError={(e) => { (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/movie/500/750'; }}
+          loading="lazy"
+          className={`w-full h-full object-cover transition-opacity duration-500 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => setImgLoaded(true)}
+          onError={(e) => { (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/movie/500/750'; setImgLoaded(true); }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
         
         {/* Progress Overlay */}
         {isDownloading && progressDetails && (
@@ -144,7 +161,7 @@ export const MovieCard = memo(({
             {movie.title}
           </h3>
         </div>
-      </div>
+      </motion.div>
     </motion.div>
   );
 }, (prevProps, nextProps) => {

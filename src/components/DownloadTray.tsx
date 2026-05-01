@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Pause, Play, X, ArrowDown, ChevronUp, ChevronDown, CheckCircle, AlertCircle } from 'lucide-react';
+import { Pause, Play, X, ArrowDown, ChevronUp, ChevronDown, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { DownloadState, DownloadStatus } from '../types';
 import { downloadManager } from '../services/downloadManager';
+import { movieboxService } from '../services/movieboxService';
 
 const formatBytes = (bytes: number) => {
   if (bytes === 0) return '0 Bytes';
@@ -21,6 +22,36 @@ const formatSpeed = (bytesPerSecond: number) => {
 export const DownloadTray = () => {
   const [activeDownloads, setActiveDownloads] = useState<DownloadState[]>([]);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [resumingIds, setResumingIds] = useState<Set<string>>(new Set());
+
+  const handleResume = async (item: DownloadState) => {
+    const mediaId = item.mediaId;
+    setResumingIds(prev => new Set(prev).add(mediaId));
+    try {
+      const searchResults = await movieboxService.search(item.movie.title);
+      const targetType = item.movie.type === 'tv' ? 2 : 1;
+      const match = searchResults.find(r => r.subjectType === targetType) || searchResults[0];
+      if (match) {
+        const sources = await movieboxService.getSources(
+          match.subjectId, match.detailPath,
+          item.movie.type === 'tv' ? 1 : undefined,
+          item.movie.type === 'tv' ? 1 : undefined
+        );
+        if (sources && sources.length > 0) {
+          const bestSource = sources.sort((a, b) => b.quality - a.quality)[0];
+          downloadManager.startDownload(item.movie, bestSource.downloadUrl, `${bestSource.quality}p`);
+        }
+      }
+    } catch (e) {
+      console.error('[DownloadTray] Failed to resume:', e);
+    } finally {
+      setResumingIds(prev => {
+        const next = new Set(prev);
+        next.delete(mediaId);
+        return next;
+      });
+    }
+  };
 
   useEffect(() => {
     // Initial load
@@ -108,10 +139,15 @@ export const DownloadTray = () => {
                           )}
                           {(item.status === 'paused' || item.status === 'error') && (
                             <button 
-                              onClick={() => {}} // In a real app we'd trigger resume with original source
-                              className="text-prime-blue hover:text-blue-400 transition-colors p-1"
+                              onClick={() => handleResume(item)}
+                              disabled={resumingIds.has(item.mediaId)}
+                              className="text-prime-blue hover:text-blue-400 transition-colors p-1 disabled:opacity-50"
                             >
-                              <Play className="w-4 h-4" />
+                              {resumingIds.has(item.mediaId) ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Play className="w-4 h-4" />
+                              )}
                             </button>
                           )}
                           <button 

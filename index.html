@@ -2,12 +2,31 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ruro Tv</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Ruro TV — A production-grade, AI-enhanced streaming platform. Watch movies and TV shows with a Netflix-style experience powered by custom video playback." />
+    <meta name="theme-color" content="#1f232b" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- Open Graph / Social Sharing -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Ruro TV — Stream Movies & TV Shows" />
+    <meta property="og:description" content="A production-grade, AI-enhanced streaming platform with custom video playback, offline downloads, and cross-device sync." />
+    <meta property="og:image" content="/logo.png" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+
+    <!-- Google Fonts: Inter (referenced in CSS but was never loaded) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+    <title>Ruro TV — Stream Movies & TV Shows</title>
   </head>
   <body>
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#E53935" />
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -19,4 +38,5 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+
 

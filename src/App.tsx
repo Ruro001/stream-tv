@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useRef, memo } from "react";
+import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Play, 
@@ -45,6 +46,15 @@ import { movieboxService, MovieBoxSource } from "./services/movieboxService";
 import { storageService } from "./services/storageService";
 import { DownloadTray } from "./components/DownloadTray";
 import { downloadManager } from "./services/downloadManager";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { SkeletonRow, SkeletonHero } from "./components/SkeletonCard";
+import { hapticsService } from "./services/hapticsService";
+
+import { HomePage } from "./components/HomePage";
+import { Navbar } from "./components/Navbar";
+import { BottomNav } from "./components/BottomNav";
+import { SeriesDetails } from "./components/SeriesDetails";
+import { MovieDetails } from "./components/MovieDetails";
 
 const DEFAULT_PROFILES: UserProfile[] = [
   { id: "1", name: "Favour", avatar: "F", color: "bg-prime-blue" },
@@ -52,676 +62,20 @@ const DEFAULT_PROFILES: UserProfile[] = [
   { id: "3", name: "Guest", avatar: "G", color: "bg-netflix-red" },
 ];
 
-const Navbar = ({ 
-  onSearch, 
-  activeMediaType, 
-  onMediaTypeChange,
-  activeProfile,
-  onProfileClick,
-  genres,
-  activeGenre,
-  onGenreChange
-}: { 
-  onSearch: (query: string) => void; 
-  activeMediaType: MediaType;
-  onMediaTypeChange: (type: MediaType) => void;
-  activeProfile: UserProfile | null;
-  onProfileClick: () => void;
-  genres: { id: number; name: string }[];
-  activeGenre: { id: number; name: string } | null;
-  onGenreChange: (genre: { id: number; name: string } | null) => void;
-}) => {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isSearchVisible, setIsSearchVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 0);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  return (
-    <nav className={`fixed top-0 w-full z-50 transition-all duration-500 px-4 md:px-12 py-3 flex items-center justify-between ${isScrolled ? "bg-[#1f232b]/95 backdrop-blur-md shadow-lg border-b border-white/5" : "bg-gradient-to-b from-black/90 via-black/40 to-transparent"}`}>
-      <div className="flex items-center gap-2 md:gap-4 shrink-0">
-        {/* LOGO */}
-        <div className="flex items-center cursor-pointer py-1" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-          <img 
-            src="/logo.png" 
-            alt="RURO TV" 
-            className="h-7 md:h-11 w-auto object-contain" 
-            onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/200x80/black/red?text=RURO+TV'; }}
-          />
-        </div>
-        
-        <div className="relative flex items-center">
-          <AnimatePresence>
-            {isSearchVisible && (
-              <motion.div 
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: 140, opacity: 1 }}
-                whileFocus={{ width: 220 }}
-                exit={{ width: 0, opacity: 0 }}
-                className="absolute left-8 flex items-center"
-              >
-                <input 
-                  autoFocus
-                  type="text" 
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    onSearch(e.target.value);
-                  }}
-                  placeholder="Search..."
-                  className="bg-white/10 border border-white/20 rounded-full pl-3 pr-8 py-1.5 text-xs md:text-sm w-full outline-none text-white focus:bg-white/20 transition-all"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => { setSearchQuery(""); onSearch(""); }}
-                    className="absolute right-2 text-gray-400 hover:text-white transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-          <Search 
-            onClick={() => setIsSearchVisible(!isSearchVisible)}
-            className="w-5 h-5 md:w-6 md:h-6 text-white cursor-pointer hover:text-[#E53935] transition-colors" 
-          />
-        </div>
-      </div>
-
-      {/* Desktop Navigation */}
-      <div className="hidden lg:flex items-center gap-10 absolute left-1/2 -translate-x-1/2">
-        <button 
-          onClick={() => onMediaTypeChange("movie")}
-          className={`text-sm font-bold transition-all whitespace-nowrap uppercase tracking-wider ${activeMediaType === "movie" ? "text-[#E53935] border-b-2 border-[#E53935] pb-1" : "text-gray-300 hover:text-white"}`}
-        >
-          Movies
-        </button>
-        <button 
-          onClick={() => onMediaTypeChange("tv")}
-          className={`text-sm font-bold transition-all whitespace-nowrap uppercase tracking-wider ${activeMediaType === "tv" ? "text-[#E53935] border-b-2 border-[#E53935] pb-1" : "text-gray-300 hover:text-white"}`}
-        >
-          TV Shows
-        </button>
-        <button className="text-sm font-bold text-gray-300 hover:text-white transition-all whitespace-nowrap uppercase tracking-wider">
-          Trailers
-        </button>
-      </div>
-
-      {/* Mobile/Right Actions */}
-      <div className="flex items-center gap-3">
-        {activeProfile && (
-          <div 
-            onClick={onProfileClick}
-            className={`w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center text-white text-sm font-black cursor-pointer ring-2 ring-transparent hover:ring-white/40 transition-all shadow-lg ${activeProfile.color || 'bg-prime-blue'}`}
-          >
-            {activeProfile.avatar}
-          </div>
-        )}
-      </div>
-    </nav>
-  );
-};
-
-const Hero = ({ movies, onInfoClick, onPlay }: { 
-  movies: Media[]; 
-  onInfoClick: (movie: Media) => void;
-  onPlay: (movie: Media) => void;
-}) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  useEffect(() => {
-    if (movies.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % movies.length);
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [movies.length]);
-
-  const movie = movies[currentIndex] || movies[0];
-  if (!movie) return null;
-
-  return (
-    <div className="relative w-full h-[60vh] md:h-[70vh] flex flex-col justify-end pb-8">
-      <div className="absolute inset-0 -z-10 overflow-hidden">
-        <img 
-          src={movie.backdrop || movie.thumbnail} 
-          alt={movie.title}
-          className="w-full h-full object-cover"
-          crossOrigin="anonymous"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#1f232b] via-[#1f232b]/50 to-transparent" />
-      </div>
-
-      <motion.div
-        key={movie.id}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="px-6 w-full max-w-4xl mx-auto"
-      >
-        <div className="flex items-end justify-between w-full">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-white text-xs md:text-sm font-black uppercase tracking-widest bg-white/10 px-3 py-1 rounded backdrop-blur-md">Available Now</span>
-            </div>
-            <h2 className="text-3xl md:text-5xl font-bold text-white tracking-tight">
-              Watch {movie.title}
-            </h2>
-            <p className="text-gray-400 text-xs uppercase tracking-widest mt-1">
-              {movie.genre[0] || "Drama"}
-            </p>
-          </div>
-          
-          <button 
-            onClick={() => onPlay(movie)}
-            className="w-14 h-14 bg-[#E53935] rounded-full flex items-center justify-center shadow-[0_10px_20px_rgba(229,57,53,0.4)] hover:scale-105 transition-transform"
-          >
-            <Play className="fill-white w-6 h-6 ml-1" />
-          </button>
-        </div>
-
-        <div className="flex items-center justify-center gap-2 mt-8">
-          {movies.slice(0, 3).map((_, i) => (
-            <div 
-              key={i} 
-              className={`h-1 rounded-full transition-all duration-300 ${i === currentIndex % 3 ? "w-6 bg-white" : "w-4 bg-white/30"}`} 
-            />
-          ))}
-        </div>
-      </motion.div>
-    </div>
-  );
-};
-
-
-const MovieRow = memo(({ 
-  title, 
-  movies, 
-  onMovieClick, 
-  onDownload,
-  onToggleFavorite,
-  favorites,
-  downloadedIds,
-  downloadingIds,
-  downloadingProgress,
-  onPause,
-  onResume
-}: { 
-  title: string; 
-  movies: Media[]; 
-  onMovieClick: (movie: Media) => void; 
-  onDownload: (movie: Media) => void;
-  onToggleFavorite: (movie: Media) => void;
-  favorites: Set<string>;
-  downloadedIds: Set<string>;
-  downloadingIds: Set<string>;
-  downloadingProgress: Record<string, any>;
-  onPause?: (id: string) => void;
-  onResume?: (id: string) => void;
-}) => {
-  const rowRef = useRef<HTMLDivElement>(null);
-
-  return (
-    <div className="space-y-3 py-4">
-      <h3 className="text-lg font-bold text-white px-4 tracking-tight">{title}</h3>
-      <div 
-        ref={rowRef}
-        className="flex gap-3 overflow-x-auto hide-scrollbar px-4"
-      >
-        {movies.map((movie) => (
-          <MovieCard 
-            key={movie.id} 
-            movie={movie} 
-            onClick={onMovieClick} 
-            onDownload={onDownload}
-            onToggleFavorite={onToggleFavorite}
-            isFavorite={favorites.has(movie.id)}
-            isDownloaded={downloadedIds.has(movie.id)}
-            isDownloading={downloadingIds.has(movie.id)}
-            progressDetails={downloadingProgress[movie.id]}
-            onPause={onPause}
-            onResume={onResume}
-          />
-        ))}
-      </div>
-    </div>
-  );
-});
-
-const BottomNav = ({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) => {
-  const tabs = [
-    { id: "home", label: "Home", icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-        <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-      </svg>
-    )},
-    { id: "for-you", label: "For You", icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7">
-        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-      </svg>
-    )},
-    { id: "favorites", label: "Favorites", icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-      </svg>
-    )},
-    { id: "downloads", label: "Downloads", icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-        <path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z" />
-      </svg>
-    )},
-    { id: "profile", label: "Profile", icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-      </svg>
-    )}
-  ];
-
-  return (
-    <div className="fixed bottom-0 w-full bg-[#2b313d] h-[72px] flex items-center justify-between z-50 rounded-t-[32px] shadow-[0_-10px_40px_rgba(0,0,0,0.3)] px-2">
-      {tabs.map((tab, index) => {
-        const isActive = activeTab === tab.id;
-        return (
-          <button 
-            key={tab.id}
-            onClick={() => onTabChange(tab.id)}
-            className={`flex items-center justify-center transition-all duration-300 h-12 relative ${
-              isActive 
-                ? `bg-[#E53935] text-white ${
-                    index === 0 ? 'rounded-r-full rounded-l-none pl-6 pr-6 -ml-2' : 
-                    index === tabs.length - 1 ? 'rounded-l-full rounded-r-none pr-6 pl-6 -mr-2' : 
-                    'rounded-full px-6'
-                  }` 
-                : `text-[#8E98A8] hover:text-white px-4`
-            }`}
-          >
-            {isActive ? (
-              <span className="font-medium text-[15px]">{tab.label}</span>
-            ) : (
-              tab.icon
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-};
-
-const SeriesDetails = ({ 
-  series, 
-  onClose, 
-  onPlay,
-  onDownload,
-  downloadedIds,
-  downloadingIds,
-  downloadingProgress
-}: { 
-  series: Media; 
-  onClose: () => void;
-  onPlay: (media: Media, episode?: Episode) => void;
-  onDownload: (episode: Episode) => void;
-  downloadedIds: Set<string>;
-  downloadingIds: Set<string>;
-  downloadingProgress: Record<string, number>;
-}) => {
-  const [selectedSeason, setSelectedSeason] = useState(1);
-  const [episodes, setEpisodes] = useState<Episode[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    const fetchEpisodes = async () => {
-      setIsLoading(true);
-      const eps = await tmdbService.getEpisodes(series.id, selectedSeason);
-      setEpisodes(eps);
-      setIsLoading(false);
-    };
-    fetchEpisodes();
-  }, [series.id, selectedSeason]);
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0, x: '100%' }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: '100%' }}
-      transition={{ type: "spring", damping: 25, stiffness: 200 }}
-      className="fixed inset-0 z-[100] bg-[#1f232b] overflow-y-auto no-scrollbar"
-    >
-      {/* Top Bar */}
-      <div className="absolute top-0 w-full z-20 flex justify-between items-center p-6 pt-12">
-        <button onClick={onClose} className="p-2">
-          <ChevronLeft className="w-8 h-8 text-white" />
-        </button>
-        <button className="p-2">
-          <Heart className="w-7 h-7 text-white" />
-        </button>
-      </div>
-
-      {/* Hero Image */}
-      <div className="relative w-full h-[55vh]">
-        <img 
-          src={series.backdrop || series.thumbnail} 
-          alt={series.title}
-          className="w-full h-full object-cover"
-          crossOrigin="anonymous"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#1f232b] via-transparent to-black/30" />
-        
-        {/* Center Play Button */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <button 
-            onClick={() => onPlay(series, episodes[0])}
-            className="w-16 h-16 rounded-full border-2 border-white/50 bg-white/10 backdrop-blur-sm flex items-center justify-center hover:scale-105 transition-transform"
-          >
-            <Play className="w-8 h-8 text-white fill-white ml-1" />
-          </button>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="relative px-6 -mt-12">
-        {/* FAB */}
-        <div className="absolute right-6 -top-6 z-10">
-          <button className="bg-[#E53935] rounded-[32px] px-4 py-4 flex flex-col items-center justify-center shadow-[0_10px_20px_rgba(229,57,53,0.4)] hover:scale-105 transition-transform min-w-[70px]">
-            <Star className="w-5 h-5 text-white fill-white mb-1" />
-            <span className="text-white text-[10px] font-bold">(1.2k)</span>
-            <span className="text-white text-[9px] font-medium">Reviews</span>
-          </button>
-        </div>
-
-        <div className="pr-24">
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            {series.title} <span className="text-gray-400 font-normal">({series.year})</span>
-          </h1>
-          <p className="text-gray-400 text-sm mt-1">{series.seasons || 1} Seasons</p>
-        </div>
-
-        {/* Tags */}
-        <div className="flex items-center gap-3 mt-4">
-          <span className="border border-gray-500 text-gray-300 px-2 py-0.5 rounded text-xs font-medium">16+</span>
-          <span className="bg-gray-700 text-white px-2 py-0.5 rounded text-xs font-bold">HD</span>
-          <div className="flex items-center gap-1">
-            <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-            <span className="text-white text-sm font-bold">{series.rating ? series.rating.toFixed(1) : "7.9"}</span>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between mt-8 px-4">
-          <button className="flex flex-col items-center gap-2 text-white hover:text-gray-300 transition-colors">
-            <Plus className="w-6 h-6" />
-            <span className="text-[11px] font-medium">Add to list</span>
-          </button>
-          <button className="flex flex-col items-center gap-2 text-white hover:text-gray-300 transition-colors">
-            <ArrowDownToLine className="w-6 h-6" />
-            <span className="text-[11px] font-medium">Download</span>
-          </button>
-          <button className="flex flex-col items-center gap-2 text-white hover:text-gray-300 transition-colors">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-              <polyline points="16 6 12 2 8 6" />
-              <line x1="12" y1="2" x2="12" y2="15" />
-            </svg>
-            <span className="text-[11px] font-medium">Share</span>
-          </button>
-        </div>
-
-        {/* Description & Overview */}
-        <div className="mt-10 space-y-6">
-          <div>
-            <h3 className="text-white text-lg font-bold mb-2">Description</h3>
-            <p className="text-gray-400 text-sm">
-              {series.genre.join(", ")}
-            </p>
-          </div>
-          
-          <div>
-            <div className="flex justify-between items-end mb-2">
-              <h3 className="text-white text-lg font-bold">Overview</h3>
-            </div>
-            <p className="text-gray-400 text-sm leading-relaxed">
-              {series.description}
-            </p>
-          </div>
-        </div>
-
-        {/* Episodes Section */}
-        <div className="mt-10 pb-24">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-white text-lg font-bold">Episodes</h3>
-            <select 
-              value={selectedSeason}
-              onChange={(e) => setSelectedSeason(Number(e.target.value))}
-              className="bg-white/10 border border-white/20 text-white px-4 py-2 rounded-md font-bold outline-none focus:border-white/50 transition-colors text-sm"
-            >
-              {Array.from({ length: series.seasons || 1 }, (_, i) => i + 1).map(season => (
-                <option key={season} value={season} className="bg-[#1f232b] text-white">
-                  Season {season}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {isLoading ? (
-            <div className="flex justify-center py-12">
-              <div className="w-8 h-8 border-4 border-prime-blue border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {episodes.map((episode, index) => (
-                <div 
-                  key={episode.id}
-                  className="flex flex-col md:flex-row gap-4 p-4 rounded-xl hover:bg-white/5 transition-colors group border border-transparent hover:border-white/10"
-                >
-                  <div className="flex items-center gap-4 md:w-1/4 shrink-0 cursor-pointer" onClick={() => onPlay(series, episode)}>
-                    <span className="text-gray-400 font-bold text-lg md:text-2xl w-8 text-center group-hover:text-white transition-colors">
-                      {index + 1}
-                    </span>
-                    <div className="relative aspect-video w-full md:w-40 rounded-lg overflow-hidden bg-white/5">
-                      {episode.thumbnail ? (
-                        <img 
-                          src={episode.thumbnail} 
-                          alt={episode.title}
-                          className="w-full h-full object-cover"
-                          crossOrigin="anonymous"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Play className="w-8 h-8 text-white/20" />
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                        <Play className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex-1 flex flex-col justify-center">
-                    <div className="flex items-start justify-between gap-4 mb-2">
-                      <h4 className="text-white font-bold text-sm md:text-base group-hover:text-prime-blue transition-colors line-clamp-1 cursor-pointer" onClick={() => onPlay(series, episode)}>
-                        {episode.title}
-                      </h4>
-                      <button 
-                        onClick={() => onDownload(episode)}
-                        disabled={downloadingIds.has(episode.id)}
-                        className={`transition-colors ${downloadedIds.has(episode.id) ? "text-green-500" : "text-white hover:text-gray-300"}`}
-                      >
-                        {downloadingIds.has(episode.id) ? (
-                          <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        ) : downloadedIds.has(episode.id) ? (
-                          <Check className="w-6 h-6" />
-                        ) : (
-                          <ArrowDownToLine className="w-6 h-6" />
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-gray-400 text-xs md:text-sm line-clamp-2 leading-relaxed cursor-pointer" onClick={() => onPlay(series, episode)}>
-                      {episode.description || "No description available."}
-                    </p>
-                  </div>
-                </div>
-              ))}
-              {episodes.length === 0 && (
-                <div className="text-center py-12 text-gray-400">
-                  No episodes found for this season.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
-const MovieDetails = ({ 
-  movie, 
-  onClose, 
-  onDownload, 
-  isDownloaded, 
-  isDownloading,
-  onPlay
-}: { 
-  movie: Media; 
-  onClose: () => void;
-  onDownload: (movie: Media) => void;
-  isDownloaded: boolean;
-  isDownloading: boolean;
-  onPlay: (movie: Media) => void;
-}) => {
-  return (
-    <motion.div 
-      initial={{ opacity: 0, x: '100%' }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: '100%' }}
-      transition={{ type: "spring", damping: 25, stiffness: 200 }}
-      className="fixed inset-0 z-[100] bg-[#1f232b] overflow-y-auto no-scrollbar"
-    >
-      {/* Top Bar */}
-      <div className="absolute top-0 w-full z-20 flex justify-between items-center p-6 pt-12">
-        <button onClick={onClose} className="p-2">
-          <ChevronLeft className="w-8 h-8 text-white" />
-        </button>
-        <button className="p-2">
-          <Heart className="w-7 h-7 text-white" />
-        </button>
-      </div>
-
-      {/* Hero Image */}
-      <div className="relative w-full h-[55vh]">
-        <img 
-          src={movie.backdrop || movie.thumbnail} 
-          alt={movie.title}
-          className="w-full h-full object-cover"
-          crossOrigin="anonymous"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#1f232b] via-transparent to-black/30" />
-        
-        {/* Center Play Button */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <button 
-            onClick={() => onPlay(movie)}
-            className="w-16 h-16 rounded-full border-2 border-white/50 bg-white/10 backdrop-blur-sm flex items-center justify-center hover:scale-105 transition-transform"
-          >
-            <Play className="w-8 h-8 text-white fill-white ml-1" />
-          </button>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="relative px-6 -mt-12">
-        {/* FAB */}
-        <div className="absolute right-6 -top-6 z-10">
-          <button className="bg-[#E53935] rounded-[32px] px-4 py-4 flex flex-col items-center justify-center shadow-[0_10px_20px_rgba(229,57,53,0.4)] hover:scale-105 transition-transform min-w-[70px]">
-            <Star className="w-5 h-5 text-white fill-white mb-1" />
-            <span className="text-white text-[10px] font-bold">(1.2k)</span>
-            <span className="text-white text-[9px] font-medium">Reviews</span>
-          </button>
-        </div>
-
-        <div className="pr-24">
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            {movie.title} <span className="text-gray-400 font-normal">({movie.year})</span>
-          </h1>
-          <p className="text-gray-400 text-sm mt-1">The Devil Made Me Do It</p>
-        </div>
-
-        {/* Tags */}
-        <div className="flex items-center gap-3 mt-4">
-          <span className="border border-gray-500 text-gray-300 px-2 py-0.5 rounded text-xs font-medium">16+</span>
-          <span className="bg-gray-700 text-white px-2 py-0.5 rounded text-xs font-bold">HD</span>
-          <div className="flex items-center gap-1">
-            <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-            <span className="text-white text-sm font-bold">{movie.rating ? movie.rating.toFixed(1) : "7.9"}</span>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between mt-8 px-4">
-          <button className="flex flex-col items-center gap-2 text-white hover:text-gray-300 transition-colors">
-            <Plus className="w-6 h-6" />
-            <span className="text-[11px] font-medium">Add to list</span>
-          </button>
-          <button 
-            onClick={() => onDownload(movie)}
-            disabled={isDownloading}
-            className={`flex flex-col items-center gap-2 transition-colors ${isDownloaded ? "text-green-500" : "text-white hover:text-gray-300"}`}
-          >
-            {isDownloading ? (
-              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : isDownloaded ? (
-              <Check className="w-6 h-6" />
-            ) : (
-              <ArrowDownToLine className="w-6 h-6" />
-            )}
-            <span className="text-[11px] font-medium">{isDownloaded ? "Downloaded" : "Download"}</span>
-          </button>
-          <button className="flex flex-col items-center gap-2 text-white hover:text-gray-300 transition-colors">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-              <polyline points="16 6 12 2 8 6" />
-              <line x1="12" y1="2" x2="12" y2="15" />
-            </svg>
-            <span className="text-[11px] font-medium">Share</span>
-          </button>
-        </div>
-
-        {/* Description & Overview */}
-        <div className="mt-10 space-y-6 pb-24">
-          <div>
-            <h3 className="text-white text-lg font-bold mb-2">Description</h3>
-            <p className="text-gray-400 text-sm">
-              {movie.genre.join(", ")} • {movie.duration || "1h 51m"}
-            </p>
-          </div>
-          
-          <div>
-            <div className="flex justify-between items-end mb-2">
-              <h3 className="text-white text-lg font-bold">Overview</h3>
-              <span className="text-gray-400 text-xs font-medium">Mon, 25 Jan 2021</span>
-            </div>
-            <p className="text-gray-400 text-sm leading-relaxed">
-              {movie.description}
-            </p>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [appState, setAppState] = useState<'loading' | 'login' | 'main' | 'update-password'>('loading');
   const [selectedMovie, setSelectedMovie] = useState<Media | null>(null);
   const [playingMovie, setPlayingMovie] = useState<Media | null>(null);
   const [playingEpisode, setPlayingEpisode] = useState<Episode | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("home");
+  
+  const activeTab = location.pathname === "/" ? "home" : location.pathname.split('/')[1];
+  const setActiveTab = (tab: string) => {
+    navigate(tab === 'home' ? '/' : `/${tab}`);
+  };
+
   const [activeMediaType, setActiveMediaType] = useState<MediaType>("movie");
   const [profiles, setProfiles] = useState<UserProfile[]>(() => {
     const saved = localStorage.getItem("profiles");
@@ -1167,7 +521,16 @@ export default function App() {
     const movieId = movie.id;
     
     setDownloadingIds(prev => new Set(prev).add(movieId));
-    setDownloadingProgress(prev => ({ ...prev, [movieId]: 0 }));
+    setDownloadingProgress(prev => ({ 
+      ...prev, 
+      [movieId]: { 
+        progress: 0, 
+        receivedBytes: 0, 
+        totalBytes: 0, 
+        speed: 0, 
+        status: 'downloading' as DownloadStatus 
+      } 
+    }));
     setDownloadingMovie(null);
 
     try {
@@ -1211,7 +574,7 @@ export default function App() {
       }
     });
 
-    return () => unsubscribe();
+    return () => { unsubscribe(); };
   }, []);
 
   const downloadedMovies = allMovies.filter(m => downloadedIds.has(m.id));
@@ -1287,14 +650,6 @@ export default function App() {
     );
   }
 
-  if (appState === 'login') {
-    return <LoginScreen onLogin={() => setAppState('main')} />;
-  }
-
-  if (appState === 'update-password') {
-    return <UpdatePasswordScreen onSuccess={() => setAppState('main')} />;
-  }
-
   return (
     <div className="min-h-screen bg-dark-bg selection:bg-netflix-red selection:text-white">
       <AnimatePresence>
@@ -1307,253 +662,171 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <Navbar 
-        onSearch={setSearchQuery} 
-        activeMediaType={activeMediaType}
-        onMediaTypeChange={setActiveMediaType}
-        activeProfile={activeProfile}
-        onProfileClick={() => setActiveProfile(null)}
-        genres={genres}
-        activeGenre={activeGenre}
-        onGenreChange={setActiveGenre}
-      />
-      
-      <main className="pb-32">
-        {!isOnline && (
-          <div className="pt-24 px-6 md:px-16 mb-8">
-            <div className="bg-orange-500/20 border border-orange-500/40 p-4 rounded-2xl text-orange-200 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
-                <span className="font-bold text-sm">Offline Mode: Showing your downloads</span>
+      {appState === 'login' ? (
+        <LoginScreen onLogin={() => setAppState('main')} />
+      ) : appState === 'update-password' ? (
+        <UpdatePasswordScreen onSuccess={() => setAppState('main')} />
+      ) : (
+        <>
+          <Navbar 
+            onSearch={setSearchQuery} 
+            activeMediaType={activeMediaType}
+            onMediaTypeChange={setActiveMediaType}
+            activeProfile={activeProfile}
+            onProfileClick={() => setActiveProfile(null)}
+            genres={genres}
+            activeGenre={activeGenre}
+            onGenreChange={setActiveGenre}
+          />
+          
+          <main className="pb-32">
+            {!isOnline && (
+              <div className="pt-24 px-6 md:px-16 mb-8">
+                <div className="bg-orange-500/20 border border-orange-500/40 p-4 rounded-2xl text-orange-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+                    <span className="font-bold text-sm">Offline Mode: Showing your downloads</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {isApiKeyMissing && isOnline && (
-          <div className="pt-24 px-6 md:px-16">
-            <div className="bg-prime-blue/20 border border-prime-blue/40 p-4 rounded-lg text-white flex items-center gap-4">
-              <Info className="w-6 h-6 text-prime-blue" />
-              <p className="text-sm md:text-base">
-                <span className="font-bold">Real Data Mode:</span> Please add your <span className="font-mono bg-black/40 px-1 rounded">VITE_TMDB_API_KEY</span> to the environment variables to see real movies and free providers.
-              </p>
-            </div>
-          </div>
-        )}
+            {isApiKeyMissing && isOnline && (
+              <div className="pt-24 px-6 md:px-16">
+                <div className="bg-prime-blue/20 border border-prime-blue/40 p-4 rounded-lg text-white flex items-center gap-4">
+                  <Info className="w-6 h-6 text-prime-blue" />
+                  <p className="text-sm md:text-base">
+                    <span className="font-bold">Real Data Mode:</span> Please add your <span className="font-mono bg-black/40 px-1 rounded">VITE_TMDB_API_KEY</span> to the environment variables to see real movies and free providers.
+                  </p>
+                </div>
+              </div>
+            )}
 
-        {searchQuery !== "" && isOnline ? (
-          <div className="pt-28 md:pt-32 px-6 md:px-16 space-y-10 md:space-y-12">
-            <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">Search Results for "{searchQuery}"</h2>
-            {searchResults.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 md:gap-8">
-                {Array.from(new Map(searchResults.map((m: Media) => [m.id, m])).values()).map((movie: Media) => (
-                  <MovieCard 
-                    key={movie.id} 
-                    movie={movie} 
-                    onClick={handleMovieClick}
-                    onDownload={downloadMovie}
-                    onToggleFavorite={toggleFavorite}
-                    isFavorite={favorites.has(movie.id)}
-                    isDownloaded={downloadedIds.has(movie.id)}
-                    isDownloading={downloadingIds.has(movie.id)}
-                    progressDetails={downloadingProgress[movie.id]}
-                    onPause={handlePauseDownload}
-                    onResume={handleResumeDownload}
+            <Routes>
+              <Route path="/" element={
+                searchQuery !== "" && isOnline ? (
+                  <div className="pt-28 md:pt-32 px-6 md:px-16 space-y-10 md:space-y-12">
+                    <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">Search Results for "{searchQuery}"</h2>
+                    {searchResults.length > 0 ? (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 md:gap-8">
+                        {Array.from(new Map(searchResults.map((m: Media) => [m.id, m])).values()).map((movie: Media) => (
+                          <MovieCard 
+                            key={movie.id} 
+                            movie={movie} 
+                            onClick={handleMovieClick}
+                            onDownload={downloadMovie}
+                            onToggleFavorite={toggleFavorite}
+                            isFavorite={favorites.has(movie.id)}
+                            isDownloaded={downloadedIds.has(movie.id)}
+                            isDownloading={downloadingIds.has(movie.id)}
+                            progressDetails={downloadingProgress[movie.id]}
+                            onPause={handlePauseDownload}
+                            onResume={handleResumeDownload}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-24 md:py-32 text-gray-500 text-lg md:text-xl font-medium">
+                        No movies found matching your search.
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <HomePage 
+                    isLoading={isLoading}
+                    trendingMovies={trendingMovies}
+                    popularMovies={popularMovies}
+                    topRatedMovies={topRatedMovies}
+                    nowPlayingMovies={nowPlayingMovies}
+                    upcomingMovies={upcomingMovies}
+                    actionMovies={actionMovies}
+                    comedyMovies={comedyMovies}
+                    scifiMovies={scifiMovies}
+                    horrorMovies={horrorMovies}
+                    animationMovies={animationMovies}
+                    recentlyWatched={recentlyWatched}
+                    genreMovies={genreMovies}
+                    activeGenre={activeGenre}
+                    activeMediaType={activeMediaType}
+                    handleMovieClick={handleMovieClick}
+                    downloadMovie={downloadMovie}
+                    toggleFavorite={toggleFavorite}
+                    favorites={favorites}
+                    downloadedIds={downloadedIds}
+                    downloadingIds={downloadingIds}
+                    downloadingProgress={downloadingProgress}
+                    handlePauseDownload={handlePauseDownload}
+                    handleResumeDownload={handleResumeDownload}
+                    addToRecentlyWatched={addToRecentlyWatched}
+                    setPlayingMovie={setPlayingMovie}
                   />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-24 md:py-32 text-gray-500 text-lg md:text-xl font-medium">
-                No movies found matching your search.
-              </div>
-            )}
-          </div>
-        ) : !isOnline || activeTab === "downloads" ? (
-          <DownloadsPage 
-             downloadedIds={downloadedIds}
-             downloadingIds={downloadingIds}
-             downloadingProgress={downloadingProgress}
-             onMovieClick={handleMovieClick}
-             onDownload={downloadMovie}
-             onToggleFavorite={toggleFavorite}
-             favorites={favorites}
-             onPause={handlePauseDownload}
-             onResume={handleResumeDownload}
-          />
-        ) : activeTab === "favorites" ? (
-          <FavoritesPage 
-            favorites={favorites}
-            movieLists={[
-              trendingMovies,
-              popularMovies,
-              topRatedMovies,
-              nowPlayingMovies,
-              upcomingMovies,
-              recentlyAddedMovies,
-              recentlyAddedTVShows,
-              genreMovies,
-              recentlyWatched,
-              searchResults
-            ]}
-            onMovieClick={handleMovieClick}
-            onDownload={downloadMovie}
-            onToggleFavorite={toggleFavorite}
-            downloadedIds={downloadedIds}
-            downloadingIds={downloadingIds}
-            downloadingProgress={downloadingProgress}
-          />
-        ) : activeTab === "downloads" ? (
-          <DownloadsPage 
-            downloadedIds={downloadedIds}
-            downloadingIds={downloadingIds}
-            downloadingProgress={downloadingProgress}
-            onMovieClick={handleMovieClick}
-            onDownload={downloadMovie}
-            onToggleFavorite={toggleFavorite}
-            favorites={favorites}
-          />
-        ) : activeTab === "profile" ? (
-          <ProfilePage onLogout={async () => {
-            await supabase?.auth.signOut();
-            setAppState('login');
-          }} />
-        ) : activeTab === "for-you" ? (
-          <ForYouPage 
-            recommendations={allMovies.filter(m => userFavorites.has(m.id) || recentlyWatched.some(w => w.id === m.id))}
-            onMovieClick={handleMovieClick}
-            onDownload={downloadMovie}
-            onToggleFavorite={toggleFavorite}
-            favorites={favorites}
-            downloadedIds={downloadedIds}
-            downloadingIds={downloadingIds}
-            downloadingProgress={downloadingProgress}
-          />
-        ) : (
-          <>
-            {!activeGenre && (
-              <Hero 
-                movies={trendingMovies.length > 0 ? trendingMovies : MOCK_MOVIES}
-                onInfoClick={handleMovieClick} 
-                onPlay={(m) => {
-                  addToRecentlyWatched(m);
-                  setPlayingMovie(m);
-                }}
-              />
-            )}
-            
-            <div className={`${activeGenre ? "pt-40" : "-mt-8"} relative z-20 space-y-4`}>
-              {activeGenre ? (
-                <MovieRow 
-                  title={`${activeGenre.name} ${activeMediaType === "movie" ? "Movies" : "TV Shows"}`} 
-                  movies={genreMovies} 
-                  onMovieClick={handleMovieClick} 
+                )
+              } />
+              <Route path="/favorites" element={
+                <FavoritesPage 
+                  favorites={favorites}
+                  movieLists={[
+                    trendingMovies,
+                    popularMovies,
+                    topRatedMovies,
+                    nowPlayingMovies,
+                    upcomingMovies,
+                    recentlyAddedMovies,
+                    recentlyAddedTVShows,
+                    genreMovies,
+                    recentlyWatched,
+                    searchResults
+                  ]}
+                  onMovieClick={handleMovieClick}
+                  onDownload={downloadMovie}
+                  onToggleFavorite={toggleFavorite}
+                  downloadedIds={downloadedIds}
+                  downloadingIds={downloadingIds}
+                  downloadingProgress={downloadingProgress}
+                />
+              } />
+              <Route path="/downloads" element={
+                <DownloadsPage 
+                  downloadedIds={downloadedIds}
+                  downloadingIds={downloadingIds}
+                  downloadingProgress={downloadingProgress}
+                  onMovieClick={handleMovieClick}
+                  onDownload={downloadMovie}
+                  onToggleFavorite={toggleFavorite}
+                  favorites={favorites}
+                  onPause={handlePauseDownload}
+                  onResume={handleResumeDownload}
+                />
+              } />
+              <Route path="/for-you" element={
+                <ForYouPage 
+                  recommendations={allMovies.filter(m => userFavorites.has(m.id) || recentlyWatched.some(w => w.id === m.id))}
+                  onMovieClick={handleMovieClick}
                   onDownload={downloadMovie}
                   onToggleFavorite={toggleFavorite}
                   favorites={favorites}
                   downloadedIds={downloadedIds}
                   downloadingIds={downloadingIds}
                   downloadingProgress={downloadingProgress}
-                  onPause={handlePauseDownload}
-                  onResume={handleResumeDownload}
                 />
-              ) : (
-                <>
-                  {recentlyWatched.length > 0 && (
-                    <MovieRow 
-                      title="Continue Watching" 
-                      movies={recentlyWatched} 
-                      onMovieClick={(m) => { addToRecentlyWatched(m); setPlayingMovie(m); }} 
-                      onDownload={downloadMovie}
-                      onToggleFavorite={toggleFavorite}
-                      favorites={favorites}
-                      downloadedIds={downloadedIds}
-                      downloadingIds={downloadingIds}
-                      downloadingProgress={downloadingProgress}
-                    />
-                  )}
-                  {nowPlayingMovies.length > 0 && (
-                    <MovieRow 
-                      title="New Releases" 
-                      movies={nowPlayingMovies} 
-                      onMovieClick={handleMovieClick} 
-                      onDownload={downloadMovie}
-                      onToggleFavorite={toggleFavorite}
-                      favorites={favorites}
-                      downloadedIds={downloadedIds}
-                      downloadingIds={downloadingIds}
-                      downloadingProgress={downloadingProgress}
-                    />
-                  )}
-                  <MovieRow 
-                    title={`Trending ${activeMediaType === "movie" ? "Movies" : "TV Shows"}`} 
-                    movies={trendingMovies} 
-                    onMovieClick={handleMovieClick} 
-                    onDownload={downloadMovie}
-                    onToggleFavorite={toggleFavorite}
-                    favorites={favorites}
-                    downloadedIds={downloadedIds}
-                    downloadingIds={downloadingIds}
-                    downloadingProgress={downloadingProgress}
-                  />
-                  <MovieRow 
-                    title="Popular on Ruro" 
-                    movies={popularMovies} 
-                    onMovieClick={handleMovieClick} 
-                    onDownload={downloadMovie}
-                    onToggleFavorite={toggleFavorite}
-                    favorites={favorites}
-                    downloadedIds={downloadedIds}
-                    downloadingIds={downloadingIds}
-                    downloadingProgress={downloadingProgress}
-                  />
-                  {actionMovies.length > 0 && (
-                    <MovieRow title="Action Packed" movies={actionMovies} onMovieClick={handleMovieClick} onDownload={downloadMovie} onToggleFavorite={toggleFavorite} favorites={favorites} downloadedIds={downloadedIds} downloadingIds={downloadingIds} downloadingProgress={downloadingProgress} />
-                  )}
-                  {comedyMovies.length > 0 && (
-                    <MovieRow title="Laugh Out Loud" movies={comedyMovies} onMovieClick={handleMovieClick} onDownload={downloadMovie} onToggleFavorite={toggleFavorite} favorites={favorites} downloadedIds={downloadedIds} downloadingIds={downloadingIds} downloadingProgress={downloadingProgress} />
-                  )}
-                  <MovieRow 
-                    title="Top Rated" 
-                    movies={topRatedMovies} 
-                    onMovieClick={handleMovieClick} 
-                    onDownload={downloadMovie}
-                    onToggleFavorite={toggleFavorite}
-                    favorites={favorites}
-                    downloadedIds={downloadedIds}
-                    downloadingIds={downloadingIds}
-                    downloadingProgress={downloadingProgress}
-                  />
-                  {scifiMovies.length > 0 && (
-                    <MovieRow title="Sci-Fi & Fantasy" movies={scifiMovies} onMovieClick={handleMovieClick} onDownload={downloadMovie} onToggleFavorite={toggleFavorite} favorites={favorites} downloadedIds={downloadedIds} downloadingIds={downloadingIds} downloadingProgress={downloadingProgress} />
-                  )}
-                  {horrorMovies.length > 0 && (
-                    <MovieRow title="Terrifying Thrillers" movies={horrorMovies} onMovieClick={handleMovieClick} onDownload={downloadMovie} onToggleFavorite={toggleFavorite} favorites={favorites} downloadedIds={downloadedIds} downloadingIds={downloadingIds} downloadingProgress={downloadingProgress} />
-                  )}
-                  {animationMovies.length > 0 && (
-                    <MovieRow title="Animation Station" movies={animationMovies} onMovieClick={handleMovieClick} onDownload={downloadMovie} onToggleFavorite={toggleFavorite} favorites={favorites} downloadedIds={downloadedIds} downloadingIds={downloadingIds} downloadingProgress={downloadingProgress} />
-                  )}
-                  <MovieRow 
-                    title="Upcoming" 
-                    movies={upcomingMovies.filter(movie => movie.releaseDate && new Date(movie.releaseDate) > new Date())} 
-                    onMovieClick={handleMovieClick} 
-                    onDownload={downloadMovie}
-                    onToggleFavorite={toggleFavorite}
-                    favorites={favorites}
-                    downloadedIds={downloadedIds}
-                    downloadingIds={downloadingIds}
-                    downloadingProgress={downloadingProgress}
-                  />
-                </>
-              )}
-            </div>
-          </>
-        )}
-      </main>
+              } />
+              <Route path="/profile" element={
+                <ProfilePage onLogout={async () => {
+                  await supabase?.auth.signOut();
+                  setAppState('login');
+                  navigate('/');
+                }} />
+              } />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </main>
 
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
-      
-      <DownloadTray />
+          <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+          <DownloadTray />
+        </>
+      )}
 
+      {/* Modals and Overlays */}
       <AnimatePresence>
         {downloadingMovie && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 px-10">
@@ -1660,7 +933,8 @@ export default function App() {
 
       <AnimatePresence>
         {playingMovie && (
-          <VideoPlayer 
+          <ErrorBoundary fallbackTitle="Player Error" fallbackMessage="The video player encountered an issue. Please try again.">
+            <VideoPlayer 
             mediaId={playingMovie.id} 
             type={playingMovie.type}
             title={playingMovie.title} 
@@ -1700,15 +974,15 @@ export default function App() {
                        media_id: playingMovie.id,
                        timestamp: time
                     }, { onConflict: 'user_id,media_id' }).then(({ error }) => {
-                      if (error) console.error("Error updating progress:", error);
+                       if (error) console.error("Error updating progress:", error);
                     });
                  }
                }
             }}
           />
+          </ErrorBoundary>
         )}
       </AnimatePresence>
-
     </div>
   );
 }
