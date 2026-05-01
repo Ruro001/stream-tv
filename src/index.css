@@ -1,13 +1,9 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  :root {
-    --color-netflix-red: #E50914;
-    --color-prime-blue: #00A8E1;
-    --color-dark-bg: #141414;
-  }
+@theme {
+  --color-netflix-red: #E50914;
+  --color-prime-blue: #00A8E1;
+  --color-dark-bg: #141414;
 }
 
 /* Hide scrollbar for all elements */
