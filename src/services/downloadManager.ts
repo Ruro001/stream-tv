@@ -60,9 +60,6 @@ class DownloadManager {
     this.runDownloadLoop(mediaId, downloadUrl, movie, quality, startByte, initialChunks);
   }
 
-  // Flush threshold: save partial to disk every 10MB to prevent RAM buildup
-  private static FLUSH_THRESHOLD = 10 * 1024 * 1024; // 10MB
-
   private async runDownloadLoop(
     mediaId: string, 
     downloadUrl: string, 
@@ -75,9 +72,7 @@ class DownloadManager {
     if (!state || !state.abortController) return;
 
     let speedIntervalId: any;
-    // Only keep a small buffer of chunks in RAM; periodically flush to disk
     let chunks: Uint8Array[] = [...initialChunks];
-    let unflushedBytes = 0;
 
     try {
       let finalUrl = downloadUrl;
@@ -130,44 +125,19 @@ class DownloadManager {
 
         chunks.push(value);
         receivedBytes += value.length;
-        unflushedBytes += value.length;
         
         state.receivedBytes = receivedBytes;
         state.progress = totalBytes > 0 ? (receivedBytes / totalBytes) * 100 : 0;
         
-        // Flush chunks to disk every 10MB to keep RAM usage low
-        if (unflushedBytes >= DownloadManager.FLUSH_THRESHOLD) {
-          try {
-            const partialBlob = new Blob(chunks as BlobPart[], { type: 'video/mp4' });
-            await storageService.savePartialVideo(mediaId, partialBlob, movie, quality);
-            // Clear in-memory chunks after successful flush
-            chunks = [];
-            unflushedBytes = 0;
-          } catch (e) {
-            console.warn("[DownloadManager] Periodic flush failed, keeping in memory:", e);
-          }
-        }
+        // Removed heavy partial save inside loop to prevent UI sluggishness
+        // Progress updates will just visually update the UI quickly
       }
 
       clearInterval(speedIntervalId);
       
-      // Build the final blob: read any previously flushed partial + remaining in-memory chunks
-      let finalBlob: Blob;
-      if (chunks.length === 0) {
-        // Everything was flushed to disk already
-        const partial = await storageService.getPartialVideo(mediaId);
-        finalBlob = partial ? partial.blob : new Blob([], { type: 'video/mp4' });
-      } else {
-        // Combine flushed partial (if any) with remaining in-memory chunks
-        const partial = await storageService.getPartialVideo(mediaId);
-        const parts = partial ? [partial.blob as BlobPart, ...(chunks as BlobPart[])] : (chunks as BlobPart[]);
-        finalBlob = new Blob(parts, { type: 'video/mp4' });
-      }
-
+      const finalBlob = new Blob(chunks as BlobPart[], { type: 'video/mp4' });
       await storageService.saveVideo(mediaId, finalBlob, movie, quality);
       await storageService.deletePartialVideo(mediaId);
-      // Free memory
-      chunks = [];
 
       state.status = 'completed';
       state.progress = 100;
@@ -179,35 +149,19 @@ class DownloadManager {
       if (speedIntervalId) clearInterval(speedIntervalId);
       
       if (error.name === 'AbortError') {
-        // Save remaining in-memory chunks to partial on pause/abort
+        // Save partial ONLY when aborted to avoid heavy disk IO during active downloads
         try {
-           if (chunks.length > 0) {
-             const partial = await storageService.getPartialVideo(mediaId);
-             const parts = partial ? [partial.blob as BlobPart, ...(chunks as BlobPart[])] : (chunks as BlobPart[]);
-             const blob = new Blob(parts, { type: 'video/mp4' });
-             await storageService.savePartialVideo(mediaId, blob, movie, quality);
-           }
+           const blob = new Blob(chunks as BlobPart[], { type: 'video/mp4' });
+           await storageService.savePartialVideo(mediaId, blob, movie, quality);
         } catch (e) {
            console.error("Failed to save partial download state:", e);
         }
-        chunks = [];
         
         state.status = 'paused';
         state.speed = 0;
         this.notify({ ...state });
       } else {
         console.error("Download manager error:", error);
-        // Still try to save progress on error so it can be resumed
-        try {
-          if (chunks.length > 0) {
-            const partial = await storageService.getPartialVideo(mediaId);
-            const parts = partial ? [partial.blob as BlobPart, ...(chunks as BlobPart[])] : (chunks as BlobPart[]);
-            const blob = new Blob(parts, { type: 'video/mp4' });
-            await storageService.savePartialVideo(mediaId, blob, movie, quality);
-          }
-        } catch (_) { /* ignore */ }
-        chunks = [];
-
         state.status = 'error';
         state.speed = 0;
         this.notify({ ...state });

@@ -6,12 +6,6 @@
   --color-dark-bg: #141414;
 }
 
-/* Shimmer animation for skeleton loaders */
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
 /* Hide scrollbar for all elements */
 * {
   -ms-overflow-style: none !important;  /* IE and Edge */
